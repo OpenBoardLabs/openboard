@@ -1,5 +1,7 @@
 # Openboard
 
+![Openboard Screenshot](./screenshot.png)
+
 Openboard is a real-time Kanban board application featuring a React frontend and an Express/Node.js backend, organized as a monorepo using npm workspaces.
 
 ## Features
@@ -67,6 +69,21 @@ We use a Kanban board to manage coding agents for several key reasons:
 
    - The **client** will be available at: [http://localhost:5173](http://localhost:5173)
    - The **server** will run on: [http://localhost:3001](http://localhost:3001)
+
+4. **Build for Production**
+
+   To build both the client and server for a production environment:
+   ```bash
+   npm run build
+   ```
+
+5. **Start the Production Servers**
+
+   To start both the client (preview) and server simultaneously:
+   ```bash
+   npm run start
+   ```
+   Or use `npm run prod` to build and start in one command.
 
 ## Project Structure
 
