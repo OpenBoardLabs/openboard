@@ -139,138 +139,140 @@ export function TicketModal({ ticket, columnId, onClose }: TicketModalProps) {
                     </div>
                 </div>
 
-                <div className={styles.body}>
+                <div className={styles.content}>
+                    <div className={styles.body}>
 
 
 
-                    {/* Title */}
-                    <textarea
-                        className={styles.titleInput}
-                        value={title}
-                        onChange={e => { setTitle(e.target.value); }}
-                        placeholder={t('ticket.title_placeholder')}
-                        rows={1}
-                    />
+                        {/* Title */}
+                        <textarea
+                            className={styles.titleInput}
+                            value={title}
+                            onChange={e => { setTitle(e.target.value); }}
+                            placeholder={t('ticket.title_placeholder')}
+                            rows={1}
+                        />
 
-                    {/* Description */}
-                    <textarea
-                        className={styles.descInput}
-                        value={description}
-                        onChange={e => setDescription(e.target.value)}
-                        placeholder={t('ticket.description_placeholder')}
-                        rows={6}
-                    />
-                </div>
-
-                {/* Priority picker */}
-                <div className={styles.section}>
-                    <span className={styles.sectionLabel}>{t('ticket.priority')}</span>
-                    <div className={styles.priorities}>
-                        {PRIORITIES.map(p => (
-                            <button
-                                key={p.value}
-                                className={`${styles.priorityBtn} ${priority === p.value ? styles.selected : ''}`}
-                                style={{ '--priority-color': p.colorVar } as React.CSSProperties}
-                                onClick={() => setPriority(p.value as Priority)}
-                            >
-                                {t(p.labelKey as Parameters<typeof t>[0])}
-                            </button>
-                        ))}
+                        {/* Description */}
+                        <textarea
+                            className={styles.descInput}
+                            value={description}
+                            onChange={e => setDescription(e.target.value)}
+                            placeholder={t('ticket.description_placeholder')}
+                            rows={6}
+                        />
                     </div>
-                </div>
 
-                {/* Agent History */}
-                {ticket && ticket.agent_sessions && ticket.agent_sessions.length > 0 && (
+                    {/* Priority picker */}
                     <div className={styles.section}>
-                        <span className={styles.sectionLabel} style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                            <Bot size={14} />
-                            Agent History
-                        </span>
-                        <div className={styles.agentHistoryList}>
-                            {ticket.agent_sessions.map((session, idx) => {
-                                const colName = state.columns.find(c => c.id === session.column_id)?.name || 'Unknown Step';
-                                return (
-                                    <div key={idx} className={styles.historyItem}>
-                                        <div className={styles.historyMeta}>
-                                            <span className={styles.historyCol}>{colName}</span>
-                                            <span className={`${styles.historyStatus} ${styles[session.status]}`}>
-                                                {session.status}
+                        <span className={styles.sectionLabel}>{t('ticket.priority')}</span>
+                        <div className={styles.priorities}>
+                            {PRIORITIES.map(p => (
+                                <button
+                                    key={p.value}
+                                    className={`${styles.priorityBtn} ${priority === p.value ? styles.selected : ''}`}
+                                    style={{ '--priority-color': p.colorVar } as React.CSSProperties}
+                                    onClick={() => setPriority(p.value as Priority)}
+                                >
+                                    {t(p.labelKey as Parameters<typeof t>[0])}
+                                </button>
+                            ))}
+                        </div>
+                    </div>
+
+                    {/* Agent History */}
+                    {ticket && ticket.agent_sessions && ticket.agent_sessions.length > 0 && (
+                        <div className={styles.section}>
+                            <span className={styles.sectionLabel} style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                <Bot size={14} />
+                                Agent History
+                            </span>
+                            <div className={styles.agentHistoryList}>
+                                {ticket.agent_sessions.map((session, idx) => {
+                                    const colName = state.columns.find(c => c.id === session.column_id)?.name || 'Unknown Step';
+                                    return (
+                                        <div key={idx} className={styles.historyItem}>
+                                            <div className={styles.historyMeta}>
+                                                <span className={styles.historyCol}>{colName}</span>
+                                                <span className={`${styles.historyStatus} ${styles[session.status]}`}>
+                                                    {session.status}
+                                                </span>
+                                            </div>
+                                            {(session.url || session.port) && (
+                                                <a
+                                                    href={session.url || `http://127.0.0.1:${session.port}`}
+                                                    target="_blank"
+                                                    rel="noopener noreferrer"
+                                                    className={styles.historyLink}
+                                                >
+                                                    Session Link <ExternalLink size={12} />
+                                                </a>
+                                            )}
+                                            {session.error_message && (
+                                                <div className={styles.historyError}>
+                                                    {session.error_message}
+                                                </div>
+                                            )}
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Comments Section */}
+                    {ticket && (
+                        <div className={styles.commentsSection}>
+
+                            <div className={styles.sectionLabel} style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                <MessageSquare size={14} />
+                                {t('ticket.comments' as any)}
+                            </div>
+
+                            <div className={styles.commentList}>
+                                {ticketComments.map(c => (
+                                    <div key={c.id} className={styles.comment}>
+                                        <div className={styles.commentHeader}>
+                                            <span className={styles.commentAuthor}>
+                                                {c.author === 'user' ? 'You' : (
+                                                    <>
+                                                        <Bot size={12} className={styles.botIcon} />
+                                                        {c.author}
+                                                    </>
+                                                )}
+                                            </span>
+                                            <span className={styles.commentDate}>
+                                                {new Date(c.created_at).toLocaleString()}
                                             </span>
                                         </div>
-                                        {(session.url || session.port) && (
-                                            <a
-                                                href={session.url || `http://127.0.0.1:${session.port}`}
-                                                target="_blank"
-                                                rel="noopener noreferrer"
-                                                className={styles.historyLink}
-                                            >
-                                                Session Link <ExternalLink size={12} />
-                                            </a>
-                                        )}
-                                        {session.error_message && (
-                                            <div className={styles.historyError}>
-                                                {session.error_message}
-                                            </div>
-                                        )}
+                                        <div className={styles.commentContent}>{c.content}</div>
                                     </div>
-                                );
-                            })}
-                        </div>
-                    </div>
-                )}
+                                ))}
+                                {ticketComments.length === 0 && (
+                                    <div className={styles.noComments}>{t('ticket.no_comments' as any)}</div>
+                                )}
+                            </div>
 
-                {/* Comments Section */}
-                {ticket && (
-                    <div className={styles.commentsSection}>
-
-                        <div className={styles.sectionLabel} style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                            <MessageSquare size={14} />
-                            {t('ticket.comments' as any)}
+                            <div className={styles.addComment}>
+                                <input
+                                    type="text"
+                                    className={styles.commentInput}
+                                    value={newComment}
+                                    onChange={e => setNewComment(e.target.value)}
+                                    onKeyDown={e => e.key === 'Enter' && handleAddComment()}
+                                    placeholder={t('ticket.add_comment_placeholder' as any)}
+                                />
+                                <button
+                                    className={styles.sendBtn}
+                                    onClick={handleAddComment}
+                                    disabled={!newComment.trim()}
+                                >
+                                    <Send size={14} />
+                                </button>
+                            </div>
                         </div>
-
-                        <div className={styles.commentList}>
-                            {ticketComments.map(c => (
-                                <div key={c.id} className={styles.comment}>
-                                    <div className={styles.commentHeader}>
-                                        <span className={styles.commentAuthor}>
-                                            {c.author === 'user' ? 'You' : (
-                                                <>
-                                                    <Bot size={12} className={styles.botIcon} />
-                                                    {c.author}
-                                                </>
-                                            )}
-                                        </span>
-                                        <span className={styles.commentDate}>
-                                            {new Date(c.created_at).toLocaleString()}
-                                        </span>
-                                    </div>
-                                    <div className={styles.commentContent}>{c.content}</div>
-                                </div>
-                            ))}
-                            {ticketComments.length === 0 && (
-                                <div className={styles.noComments}>{t('ticket.no_comments' as any)}</div>
-                            )}
-                        </div>
-
-                        <div className={styles.addComment}>
-                            <input
-                                type="text"
-                                className={styles.commentInput}
-                                value={newComment}
-                                onChange={e => setNewComment(e.target.value)}
-                                onKeyDown={e => e.key === 'Enter' && handleAddComment()}
-                                placeholder={t('ticket.add_comment_placeholder' as any)}
-                            />
-                            <button
-                                className={styles.sendBtn}
-                                onClick={handleAddComment}
-                                disabled={!newComment.trim()}
-                            >
-                                <Send size={14} />
-                            </button>
-                        </div>
-                    </div>
-                )}
+                    )}
+                </div>
                 {/* Footer */}
                 <div className={styles.footer}>
                     {ticket ? (

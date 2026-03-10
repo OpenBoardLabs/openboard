@@ -60,8 +60,6 @@ export class OpencodeAgent implements Agent {
                 }
             });
 
-            console.log(session);
-
             if (!session.data) throw new Error("Failed to create OpenCode session");
 
             const sessionID = session.data.id;
@@ -202,6 +200,43 @@ export class OpencodeAgent implements Agent {
                             }
                         }
 
+                        // Handle Session Idle (Task Completed)
+                        if (event.type === 'session.idle') {
+                            console.log(`[opencode-agent] Agent task completed (idle) for ticket ${ticket.id}.`);
+
+                            // Check if the session failed with a fatal error previously
+                            const currentTicket = ticketRepository.findById(ticket.id);
+                            const hasError = currentTicket?.agent_sessions?.some(s => s.column_id === ticket.column_id && s.status === 'blocked');
+
+                            if (!hasError) {
+                                // Mark the ticket as done now that the agent session finished processing
+                                ticketRepository.updateAgentSession(ticket.id, {
+                                    column_id: ticket.column_id,
+                                    agent_type: 'opencode',
+                                    status: 'done',
+                                    port: 4096,
+                                    url: agentUrl
+                                });
+
+                                // Move ticket to the configured destination column (if set)
+                                if (config.on_finish_column_id) {
+                                    console.log(`[opencode-agent] Moving ticket ${ticket.id} to column ${config.on_finish_column_id}`);
+                                    const moved = ticketRepository.move(ticket.id, config.on_finish_column_id, 0);
+                                    if (moved) {
+                                        import('./agent-runner.js').then(({ triggerAgent }) => {
+                                            triggerAgent(moved);
+                                        }).catch(err => console.error("Failed to trigger agent runner", err));
+                                    }
+                                }
+                            }
+
+                            // Clean up the server instance tracking after a brief delay
+                            setTimeout(() => {
+                                console.log(`[opencode-agent] Cleaning up tracking for ${ticket.id}`);
+                                delete activeSessions[ticket.id];
+                            }, 60000); // 1 minute cleanup
+                        }
+
                         // ── Live Text Streaming via Deltas ──
                         if ((event as any).type === 'message.part.delta') {
                             const partID = (event as any).properties.partID;
@@ -232,8 +267,8 @@ export class OpencodeAgent implements Agent {
             })();
             // ------------------------------------------
 
-            // Send first message
-            const promptRes = await opencodeClient.session.prompt({
+            // Send first message asynchronously (doesn't wait for completion)
+            const promptRes = await opencodeClient.session.promptAsync({
                 path: { id: sessionID },
                 body: {
                     parts: [{
@@ -243,42 +278,11 @@ export class OpencodeAgent implements Agent {
                 }
             });
 
-            console.log(promptRes);
-
             if (promptRes.error) {
                 throw new Error(`OpenCode session error: ${JSON.stringify(promptRes.error)}`);
             }
-            if ((promptRes.data as any)?.info?.error) {
-                const err = (promptRes.data as any).info.error;
-                throw new Error(`${err.name || 'Error'}: ${err.data?.message || JSON.stringify(err.data)}`);
-            }
 
-            console.log(`[opencode-agent] Agent task dispatched and completed for ticket ${ticket.id}.`);
-
-            // Mark the ticket as done now that the agent session finished processing
-            ticketRepository.updateAgentSession(ticket.id, {
-                column_id: ticket.column_id,
-                agent_type: 'opencode',
-                status: 'done',
-                port: 4096,
-                url: agentUrl
-            });
-
-            // Move ticket to the configured destination column (if set)
-            if (config.on_finish_column_id) {
-                console.log(`[opencode-agent] Moving ticket ${ticket.id} to column ${config.on_finish_column_id}`);
-                const moved = ticketRepository.move(ticket.id, config.on_finish_column_id, 0);
-                if (moved) {
-                    const { triggerAgent } = await import('./agent-runner.js');
-                    triggerAgent(moved);
-                }
-            }
-
-            // Clean up the server instance tracking after a brief delay
-            setTimeout(() => {
-                console.log(`[opencode-agent] Cleaning up tracking for ${ticket.id}`);
-                delete activeSessions[ticket.id];
-            }, 60000); // 1 minute cleanup
+            console.log(`[opencode-agent] Agent task dispatched for ticket ${ticket.id}. Waiting for completion in background.`);
 
         } catch (e: any) {
             console.error(`[opencode-agent] Failed to initialize task over SDK: ${e.message}`);
