@@ -8,6 +8,9 @@
   ],
   "scripts": {
     "dev": "concurrently --names \"server,client\" --prefix-colors \"cyan,magenta\" \"npm run dev --workspace=packages/server\" \"npm run dev --workspace=packages/client\"",
+    "build": "npm run build --workspaces",
+    "start": "concurrently --names \"server,client\" --prefix-colors \"cyan,magenta\" \"npm run start --workspace=packages/server\" \"npm run preview --workspace=packages/client\"",
+    "prod": "npm run build && npm run start",
     "install:all": "npm install"
   },
   "devDependencies": {

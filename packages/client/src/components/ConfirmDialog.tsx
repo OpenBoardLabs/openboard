@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import { useEffect } from 'react';
 import { t } from '../i18n/i18n';
 import styles from './ConfirmDialog.module.css';
 

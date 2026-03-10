@@ -14,7 +14,7 @@ async function start() {
     console.log('[openboard] Database ready');
 
     const app = express();
-    app.use(cors({ origin: process.env.CLIENT_ORIGIN ?? 'http://localhost:5173' }));
+    app.use(cors({ origin: process.env.CLIENT_ORIGIN ? process.env.CLIENT_ORIGIN.split(',') : ['http://localhost:5173', 'http://localhost:4173'] }));
     app.use(express.json());
 
     // SSE subscription endpoint

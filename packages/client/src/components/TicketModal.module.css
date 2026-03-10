@@ -28,9 +28,16 @@
     width: 600px;
     max-width: calc(100vw - 32px);
     max-height: calc(100vh - 120px);
-    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
     box-shadow: var(--shadow-lg);
     animation: slideIn 150ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.content {
+    overflow-y: auto;
+    flex: 1;
 }
 
 @keyframes slideIn {

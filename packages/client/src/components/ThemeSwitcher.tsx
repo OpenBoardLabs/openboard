@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { t } from '../i18n/i18n';
 import styles from './ThemeSwitcher.module.css';
 import { Sun, Moon } from 'lucide-react';

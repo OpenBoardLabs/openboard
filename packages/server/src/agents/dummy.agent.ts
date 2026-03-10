@@ -31,7 +31,11 @@ export class DummyAgent implements Agent {
         });
 
         // 2 — Set status to done
-        const updated = ticketRepository.setAgentStatus(ticket.id, 'done');
+        const updated = ticketRepository.updateAgentSession(ticket.id, {
+            column_id: ticket.column_id,
+            agent_type: 'dummy',
+            status: 'done'
+        });
         if (updated) {
             sseManager.emit(ticket.board_id, 'ticket:updated', updated);
         }
