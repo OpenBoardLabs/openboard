@@ -1,26 +1,25 @@
-# Openboard
+# Openboard: The AI Agent Orchestration Board
 
 ![Openboard Screenshot](./screenshot.png)
 
-Openboard is a real-time Kanban board application featuring a React frontend and an Express/Node.js backend, organized as a monorepo using npm workspaces.
+Openboard is not just another Kanban board—it is an orchestration platform specifically designed to **manage, monitor, and collaborate with autonomous AI coding agents**. While it features a real-time Kanban interface built with React and Node.js, our primary focus is on providing a seamless environment for agents to pick up tasks, execute them in isolation, and submit their work.
 
-## Features
+## Why Openboard? Managing Coding Agents
 
-- **Kanban Boards**: Create and manage multiple boards.
-- **Columns & Tickets**: Organize your work with customizable columns and draggable tickets.
-- **Real-time Updates**: Changes are instantly synced across clients using Server-Sent Events (SSE).
-- **Dark Mode**: Built-in theme switcher for light and dark modes.
-- **Local Database**: Uses SQL.js for a lightweight, file-based SQLite database.
-
-## Managing Coding Agents
-
-We use a Kanban board to manage coding agents for several key reasons:
+We use a Kanban board as the central nervous system for AI agents for several key reasons:
 
 - **Visibility and Tracking**: A board provides a clear, visual representation of what each agent is currently working on, what tasks are queued, and what has been completed.
 - **Task Decomposition**: Complex software engineering tasks can be broken down into smaller, manageable tickets, allowing multiple agents to work in parallel on different components.
-- **State Management**: The board acts as a centralized state machine for the agents' progress. If an agent encounters an error or needs human intervention, the ticket status reflects this immediately.
-- **Prioritization**: We can easily reorder tickets in the backlog to direct the agents' focus to the most critical tasks first.
-- **Collaboration**: It facilitates seamless handoffs between different specialized agents (e.g., an architecture agent breaking down a task into tickets, which are then picked up by implementation agents).
+- **State Management**: The board acts as a centralized state machine for the agents' progress. If an agent encounters an error or requires human approval, the ticket status reflects this immediately.
+- **Prioritization**: Easily reorder tickets in the backlog to direct the agents' focus to the most critical tasks first.
+- **Seamless Collaboration**: Facilitates handoffs between specialized agents (e.g., an architecture agent breaking down a task into tickets, which are then picked up by implementation agents).
+
+## How Agents Work: Git Worktrees & GitHub CLI
+
+To allow multiple agents to work in parallel without tripping over each other, Openboard leverages **Git Worktrees** and the **GitHub CLI (`gh`)**. 
+
+- **Git Worktrees**: When an agent picks up a ticket, it doesn't just check out a branch in your main project folder. Instead, it creates an isolated feature branch and a dedicated git worktree for it. This provides the agent with its own physical directory and working tree to modify files, run tests, and commit changes comfortably, all while ensuring your main workspace remains untouched.
+- **PR Generation (`gh`)**: Once the agent finishes its implementation, it uses the GitHub CLI to automatically push its branch and open a Pull Request for human review, progressing the ticket to a "Needs Approval" state on the board.
 
 ## Tech Stack
 
@@ -41,8 +40,11 @@ We use a Kanban board to manage coding agents for several key reasons:
 
 ## Prerequisites
 
-- [Node.js](https://nodejs.org/) (v18 or newer recommended)
-- npm (comes with Node.js)
+Before running Openboard, ensure you have the following installed on your system:
+
+- **[Node.js](https://nodejs.org/)** (v18 or newer recommended) & npm
+- **[Git](https://git-scm.com/)**: Required for agents to manage versions and worktrees. Ensure `git` is available in your PATH.
+- **[GitHub CLI (`gh`)](https://cli.github.com/)**: Required for agents to authenticate and create Pull Requests. Ensure `gh` is available in your PATH and you are authenticated by running `gh auth login` before starting the agents.
 
 ## Getting Started
 
@@ -70,16 +72,13 @@ We use a Kanban board to manage coding agents for several key reasons:
    - The **client** will be available at: [http://localhost:5173](http://localhost:5173)
    - The **server** will run on: [http://localhost:3001](http://localhost:3001)
 
-4. **Build for Production**
+4. **Build and Run for Production**
 
    To build both the client and server for a production environment:
    ```bash
    npm run build
    ```
-
-5. **Start the Production Servers**
-
-   To start both the client (preview) and server simultaneously:
+   To start the production servers simultaneously:
    ```bash
    npm run start
    ```
@@ -95,6 +94,6 @@ openboard/
 │   │   ├── src/          # Components, Context, Styles
 │   │   └── package.json
 │   └── server/           # Express backend application
-│       ├── src/          # Routes, Database logic, SSE
+│       ├── src/          # Routes, Database logic, SSE, Agent logic
 │       └── package.json
 ```
