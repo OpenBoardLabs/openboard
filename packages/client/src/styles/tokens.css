@@ -1,0 +1,138 @@
+/* ==========================================================================
+   OpenBoard Design Tokens
+   All visual values live here. To add a theme, add a [data-theme="name"] block.
+   ========================================================================== */
+
+:root,
+[data-theme='dark'] {
+  /* Backgrounds */
+  --color-bg:          #0a0a0a;
+  --color-surface:     #111111;
+  --color-surface-2:   #1a1a1a;
+  --color-surface-3:   #222222;
+
+  /* Borders */
+  --color-border:      rgba(255, 255, 255, 0.08);
+  --color-border-hover: rgba(255, 255, 255, 0.16);
+
+  /* Text */
+  --color-text-primary:   #ededed;
+  --color-text-secondary: #a1a1aa;
+  --color-text-muted:     #52525b;
+  --color-text-on-accent: #ffffff;
+
+  /* Accent */
+  --color-accent:         #5e6ad2;
+  --color-accent-hover:   #6b7ae2;
+  --color-accent-subtle:  rgba(94, 106, 210, 0.15);
+
+  /* Priority */
+  --color-priority-low:    #3b82f6;
+  --color-priority-medium: #f59e0b;
+  --color-priority-high:   #f97316;
+  --color-priority-urgent: #ef4444;
+
+  /* Feedback */
+  --color-success: #22c55e;
+  --color-error:   #ef4444;
+
+  /* Shadows */
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.5);
+  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.6);
+  --shadow-lg: 0 8px 32px rgba(0, 0, 0, 0.7);
+
+  /* Scrollbar */
+  --scrollbar-thumb: rgba(255, 255, 255, 0.1);
+  --scrollbar-track: transparent;
+}
+
+[data-theme='light'] {
+  /* Backgrounds */
+  --color-bg:          #f4f4f5;
+  --color-surface:     #ffffff;
+  --color-surface-2:   #f4f4f5;
+  --color-surface-3:   #e4e4e7;
+
+  /* Borders */
+  --color-border:       rgba(0, 0, 0, 0.08);
+  --color-border-hover: rgba(0, 0, 0, 0.16);
+
+  /* Text */
+  --color-text-primary:   #09090b;
+  --color-text-secondary: #52525b;
+  --color-text-muted:     #a1a1aa;
+  --color-text-on-accent: #ffffff;
+
+  /* Accent */
+  --color-accent:        #5e6ad2;
+  --color-accent-hover:  #4f59c2;
+  --color-accent-subtle: rgba(94, 106, 210, 0.1);
+
+  /* Priority */
+  --color-priority-low:    #2563eb;
+  --color-priority-medium: #d97706;
+  --color-priority-high:   #ea580c;
+  --color-priority-urgent: #dc2626;
+
+  /* Feedback */
+  --color-success: #16a34a;
+  --color-error:   #dc2626;
+
+  /* Shadows */
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.06);
+  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.08);
+  --shadow-lg: 0 8px 32px rgba(0, 0, 0, 0.12);
+
+  /* Scrollbar */
+  --scrollbar-thumb: rgba(0, 0, 0, 0.12);
+  --scrollbar-track: transparent;
+}
+
+/* ==========================================================================
+   Spacing (4px grid)
+   ========================================================================== */
+:root {
+  --space-1:  4px;
+  --space-2:  8px;
+  --space-3:  12px;
+  --space-4:  16px;
+  --space-5:  20px;
+  --space-6:  24px;
+  --space-8:  32px;
+  --space-10: 40px;
+  --space-12: 48px;
+
+  /* Radii */
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 10px;
+  --radius-xl: 16px;
+  --radius-full: 9999px;
+
+  /* Typography */
+  --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
+  --font-mono: 'Fira Code', 'Cascadia Code', monospace;
+
+  --text-xs:   11px;
+  --text-sm:   13px;
+  --text-base: 14px;
+  --text-md:   15px;
+  --text-lg:   17px;
+  --text-xl:   20px;
+  --text-2xl:  24px;
+
+  --line-height-tight:  1.25;
+  --line-height-normal: 1.5;
+
+  /* Transitions */
+  --transition-fast:   80ms ease;
+  --transition-normal: 150ms ease;
+  --transition-slow:   250ms ease;
+
+  /* Sidebar */
+  --sidebar-width: 220px;
+
+  /* Layout */
+  --topbar-height: 48px;
+  --column-width:  280px;
+}

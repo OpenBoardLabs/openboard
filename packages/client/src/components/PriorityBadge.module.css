@@ -1,0 +1,19 @@
+.badge {
+    display: inline-flex;
+    align-items: center;
+    border-radius: var(--radius-full);
+    font-weight: 500;
+    background: color-mix(in srgb, var(--priority-color) 15%, transparent);
+    color: var(--priority-color);
+    white-space: nowrap;
+}
+
+.sm {
+    font-size: var(--text-xs);
+    padding: 2px 7px;
+}
+
+.md {
+    font-size: var(--text-sm);
+    padding: var(--space-1) var(--space-3);
+}

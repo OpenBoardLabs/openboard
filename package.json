@@ -1,0 +1,16 @@
+{
+  "name": "openboard",
+  "version": "1.0.0",
+  "private": true,
+  "workspaces": [
+    "packages/server",
+    "packages/client"
+  ],
+  "scripts": {
+    "dev": "concurrently --names \"server,client\" --prefix-colors \"cyan,magenta\" \"npm run dev --workspace=packages/server\" \"npm run dev --workspace=packages/client\"",
+    "install:all": "npm install"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2"
+  }
+}

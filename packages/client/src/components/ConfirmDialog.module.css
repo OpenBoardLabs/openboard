@@ -1,0 +1,87 @@
+.overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.6);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 100;
+    backdrop-filter: blur(4px);
+    animation: fadeIn 150ms ease;
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+    }
+
+    to {
+        opacity: 1;
+    }
+}
+
+.dialog {
+    background: var(--color-surface-2);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-lg);
+    padding: var(--space-6);
+    max-width: 340px;
+    width: 90%;
+    box-shadow: var(--shadow-lg);
+    animation: slideIn 150ms ease;
+}
+
+@keyframes slideIn {
+    from {
+        transform: translateY(-8px);
+        opacity: 0;
+    }
+
+    to {
+        transform: translateY(0);
+        opacity: 1;
+    }
+}
+
+.message {
+    font-size: var(--text-sm);
+    color: var(--color-text-secondary);
+    line-height: var(--line-height-normal);
+    margin-bottom: var(--space-6);
+}
+
+.actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: var(--space-2);
+}
+
+.cancel {
+    padding: var(--space-2) var(--space-4);
+    border-radius: var(--radius-md);
+    font-size: var(--text-sm);
+    font-weight: 500;
+    color: var(--color-text-secondary);
+    border: 1px solid var(--color-border);
+    background: transparent;
+    transition: background var(--transition-normal), color var(--transition-normal);
+}
+
+.cancel:hover {
+    background: var(--color-surface-3);
+    color: var(--color-text-primary);
+}
+
+.confirm {
+    padding: var(--space-2) var(--space-4);
+    border-radius: var(--radius-md);
+    font-size: var(--text-sm);
+    font-weight: 500;
+    color: #fff;
+    background: var(--color-error);
+    transition: opacity var(--transition-fast);
+}
+
+.confirm:hover {
+    opacity: 0.85;
+}
