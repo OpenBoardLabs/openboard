@@ -85,7 +85,7 @@ class AgentQueueManager {
                 const session = ticket.agent_sessions.find(s => s.column_id === columnId);
 
                 if (session) {
-                    if (session.status === 'processing' || this.runningTickets.has(ticket.id)) {
+                    if (session.status === 'processing' || session.status === 'needs_approval' || this.runningTickets.has(ticket.id)) {
                         activeCount++;
                     } else if (session.status === 'done') {
                         // Already completed this step, skip it completely.

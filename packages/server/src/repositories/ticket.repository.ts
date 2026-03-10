@@ -147,8 +147,9 @@ export const ticketRepository = {
         sessionData: {
             column_id: string;
             agent_type: string;
-            status: 'processing' | 'done' | 'blocked';
+            status: 'processing' | 'done' | 'blocked' | 'needs_approval';
             url?: string;
+            pr_url?: string;
             port?: number;
             error_message?: string;
         }

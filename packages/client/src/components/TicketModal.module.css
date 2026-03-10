@@ -112,6 +112,15 @@
     background: rgba(239, 68, 68, 0.2);
 }
 
+.statusBadge.needsApproval {
+    color: #f59e0b;
+    background: rgba(245, 158, 11, 0.1);
+}
+
+.statusBadge.needsApproval:hover {
+    background: rgba(245, 158, 11, 0.2);
+}
+
 .columnTag {
     font-size: var(--text-xs);
     color: var(--color-text-muted);
@@ -483,6 +492,18 @@
 .historyStatus.blocked {
     background: rgba(239, 68, 68, 0.15);
     color: #ef4444;
+}
+
+.historyStatus.needs_approval {
+    background: rgba(245, 158, 11, 0.15);
+    color: #f59e0b;
+}
+
+.historyLinks {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--space-3);
 }
 
 .historyLink {

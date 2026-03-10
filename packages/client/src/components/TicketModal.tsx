@@ -6,7 +6,7 @@ import { PRIORITIES } from '../constants';
 import { PriorityBadge } from './PriorityBadge';
 import { ConfirmDialog } from './ConfirmDialog';
 import styles from './TicketModal.module.css';
-import { X, Trash2, MessageSquare, Send, Bot, CheckCircle, ExternalLink, RotateCcw } from 'lucide-react';
+import { X, Trash2, MessageSquare, Send, Bot, CheckCircle, ExternalLink, RotateCcw, GitPullRequest } from 'lucide-react';
 
 interface TicketModalProps {
     ticket?: Ticket;
@@ -99,6 +99,12 @@ export function TicketModal({ ticket, columnId, onClose }: TicketModalProps) {
                                 <div key={idx} className={`${styles.statusBadge} ${styles.blocked}`} title="Agent execution failed or blocked">
                                     <span style={{ color: 'white' }}>⚠️</span>
                                     Error
+                                </div>
+                            );
+                            if (session.status === 'needs_approval') return (
+                                <div key={idx} className={`${styles.statusBadge} ${styles.needsApproval}`} title="Agent requires user permission">
+                                    <span style={{ color: '#f59e0b' }}>✋</span>
+                                    Needs Approval
                                 </div>
                             );
                             return null;
@@ -194,20 +200,33 @@ export function TicketModal({ ticket, columnId, onClose }: TicketModalProps) {
                                         <div key={idx} className={styles.historyItem}>
                                             <div className={styles.historyMeta}>
                                                 <span className={styles.historyCol}>{colName}</span>
-                                                <span className={`${styles.historyStatus} ${styles[session.status]}`}>
-                                                    {session.status}
+                                                <span className={`${styles.historyStatus} ${styles[session.status] || ''}`}>
+                                                    {session.status === 'needs_approval' ? 'Needs Approval' : session.status}
                                                 </span>
                                             </div>
-                                            {(session.url || session.port) && (
-                                                <a
-                                                    href={session.url || `http://127.0.0.1:${session.port}`}
-                                                    target="_blank"
-                                                    rel="noopener noreferrer"
-                                                    className={styles.historyLink}
-                                                >
-                                                    Session Link <ExternalLink size={12} />
-                                                </a>
-                                            )}
+                                            <div className={styles.historyLinks}>
+                                                {(session.url || session.port) && (
+                                                    <a
+                                                        href={session.url || `http://127.0.0.1:${session.port}`}
+                                                        target="_blank"
+                                                        rel="noopener noreferrer"
+                                                        className={styles.historyLink}
+                                                    >
+                                                        Session Link <ExternalLink size={12} />
+                                                    </a>
+                                                )}
+                                                {session.pr_url && (
+                                                    <a
+                                                        href={session.pr_url}
+                                                        target="_blank"
+                                                        rel="noopener noreferrer"
+                                                        className={styles.historyLink}
+                                                        style={{ color: '#2da44e' }}
+                                                    >
+                                                        Code Review <GitPullRequest size={12} />
+                                                    </a>
+                                                )}
+                                            </div>
                                             {session.error_message && (
                                                 <div className={styles.historyError}>
                                                     {session.error_message}

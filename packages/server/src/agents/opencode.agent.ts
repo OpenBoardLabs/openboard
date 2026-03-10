@@ -5,6 +5,29 @@ import { ticketRepository } from '../repositories/ticket.repository.js';
 import { boardRepository } from '../repositories/board.repository.js';
 import { commentRepository } from '../repositories/comment.repository.js';
 import { setupOpencodeEventListener } from './opencode.events.js';
+import { execFile, exec } from 'child_process';
+import { promisify } from 'util';
+import os from 'os';
+import path from 'path';
+
+const execAsync = promisify(exec);
+const execFileAsync = promisify(execFile);
+
+// Helper function to execute commands robustly on Windows
+async function runCmd(cmd: string, args: string[], cwd: string): Promise<{ stdout: string, stderr: string }> {
+    console.log(`[opencode-agent] Running: ${cmd} ${args.join(' ')} in cwd: ${cwd}`);
+    try {
+        // First try execFile with shell: true which resolves .cmd and .exe automatically in PATH
+        return await execFileAsync(cmd, args, { cwd, shell: true });
+    } catch (e: any) {
+        if (e.code === 'ENOENT') {
+            console.log(`[opencode-agent] ENOENT with shell: true. Trying fallback exec...`);
+            // Fallback to explicit cmd.exe if the default shell resolution failed
+            return await execAsync(`${cmd} ${args.join(' ')}`, { cwd });
+        }
+        throw e;
+    }
+}
 
 // Central OpenCode client connecting to the user's running OpenCode server
 const opencodeClient = createOpencodeClient({ baseUrl: 'http://127.0.0.1:4096' });
@@ -45,9 +68,42 @@ export class OpencodeAgent implements Agent {
             console.error(`[opencode-agent] No usable folder workspace found for board ${board.id}`);
             return;
         }
-        const worktreePath = folderWorkspace.path;
+        let originalWorkspacePath = folderWorkspace.path;
 
-        // 2. Initialize Task
+        // Fix WSL path mapping if the Node server is running on Windows
+        if (originalWorkspacePath.startsWith('/mnt/')) {
+            const driveLetter = originalWorkspacePath.charAt(5).toUpperCase();
+            originalWorkspacePath = `${driveLetter}:\\${originalWorkspacePath.slice(7).replace(/\//g, '\\')}`;
+            console.log(`[opencode-agent] Normalized WSL path to Windows path for CWD: ${originalWorkspacePath}`);
+        }
+
+        // 2. Create Worktree
+        const branchName = `ticket-${ticket.id}-${Date.now()}`;
+        const tempWorktreePath = path.join(os.tmpdir(), 'openboard-worktrees', branchName);
+
+        try {
+            console.log(`[opencode-agent] Creating git worktree for ticket ${ticket.id} at ${tempWorktreePath} on branch ${branchName}`);
+            await runCmd('git', ['worktree', 'add', '-b', branchName, tempWorktreePath], originalWorkspacePath);
+        } catch (e: any) {
+            console.error(`[opencode-agent] Failed to create git worktree: ${e.message}`);
+
+            delete activeSessions[ticket.id];
+            ticketRepository.updateAgentSession(ticket.id, {
+                column_id: ticket.column_id,
+                agent_type: 'opencode',
+                status: 'blocked',
+                port: 4096,
+                error_message: e.message
+            });
+            commentRepository.create({
+                ticketId: ticket.id,
+                author: 'System',
+                content: `❌ **Failed to Initialize Worktree**\n\nThe agent could not prepare its isolated worktree.\nError: ${e.message}`
+            });
+            return;
+        }
+
+        // 3. Initialize Task
         try {
             // Create session
             const session = await opencodeClient.session.create({
@@ -55,7 +111,7 @@ export class OpencodeAgent implements Agent {
                     title: `Session for Ticket: ${ticket.title}`,
                 },
                 query: {
-                    directory: worktreePath
+                    directory: tempWorktreePath
                 }
             });
 
@@ -65,7 +121,7 @@ export class OpencodeAgent implements Agent {
             activeSessions[ticket.id] = sessionID;
 
             // Compute exact OpenCode Tracking URL
-            const encodedPath = Buffer.from(worktreePath).toString('base64url');
+            const encodedPath = Buffer.from(tempWorktreePath).toString('base64url');
             const agentUrl = `http://127.0.0.1:4096/${encodedPath}/session/${sessionID}`;
 
             ticketRepository.updateAgentSession(ticket.id, {
@@ -87,7 +143,10 @@ export class OpencodeAgent implements Agent {
                 ticket,
                 agentUrl,
                 config,
-                activeSessions
+                activeSessions,
+                tempWorktreePath,
+                originalWorkspacePath,
+                branchName
             );
             // ------------------------------------------
 
@@ -97,7 +156,7 @@ export class OpencodeAgent implements Agent {
                 body: {
                     parts: [{
                         type: "text",
-                        text: `# TASK: ${ticket.title}\n\n## Description\n${ticket.description}\n\n## Instructions\n1. The current working directory you should focus on is ${worktreePath}.\n`
+                        text: `# TASK: ${ticket.title}\n\n## Description\n${ticket.description}\n\n## Instructions\n1. The current working directory you should focus on is ${tempWorktreePath}.\n`
                     }]
                 }
             });
@@ -117,7 +176,7 @@ export class OpencodeAgent implements Agent {
                 column_id: ticket.column_id,
                 agent_type: 'opencode',
                 status: 'blocked',
-                url: activeSessions[ticket.id] ? `http://127.0.0.1:4096/${Buffer.from(worktreePath).toString('base64url')}/session/${activeSessions[ticket.id]}` : undefined,
+                url: activeSessions[ticket.id] ? `http://127.0.0.1:4096/${Buffer.from(tempWorktreePath).toString('base64url')}/session/${activeSessions[ticket.id]}` : undefined,
                 error_message: e.message
             });
 

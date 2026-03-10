@@ -28,8 +28,9 @@ export interface Column {
 export interface AgentSession {
     column_id: string; // The step/column this agent session belongs to
     agent_type: string; // e.g., 'opencode'
-    status: 'processing' | 'done' | 'blocked';
+    status: 'processing' | 'done' | 'blocked' | 'needs_approval';
     url?: string;
+    pr_url?: string;
     port?: number;
     error_message?: string;
     started_at: string;
