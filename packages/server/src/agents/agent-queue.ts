@@ -3,12 +3,14 @@ import { columnConfigRepository } from '../repositories/column-config.repository
 import { sseManager } from '../sse.js';
 import { DummyAgent } from './dummy.agent.js';
 import { OpencodeAgent } from './opencode.agent.js';
+import { CodeReviewAgent } from './codereview.agent.js';
 import type { Agent } from './agent.interface.js';
 import type { AgentType, Ticket, Priority } from '../types.js';
 
 const agentRegistry: Partial<Record<AgentType, new () => Agent>> = {
     dummy: DummyAgent,
     opencode: OpencodeAgent,
+    code_review: CodeReviewAgent,
 };
 
 const PRIORITY_WEIGHTS: Record<Priority, number> = {
@@ -33,8 +35,8 @@ class AgentQueueManager {
         const ticket = ticketRepository.findById(ticketId);
         if (ticket) {
             if (force) {
-                // Remove the blocked session if it exists for this column so it can be picked up freshly
-                const updatedSessions = ticket.agent_sessions.filter(s => !(s.column_id === ticket.column_id && s.status === 'blocked'));
+                // Remove the blocked or done session if it exists for this column so it can be picked up freshly
+                const updatedSessions = ticket.agent_sessions.filter(s => !(s.column_id === ticket.column_id && (s.status === 'blocked' || s.status === 'done')));
                 // Directly overwrite the JSON via raw DB call to avoid deep partial matching issues
                 const dbModule = await import('../db/database.js');
                 dbModule.getDb().prepare('UPDATE tickets SET agent_sessions = ? WHERE id = ?').run(JSON.stringify(updatedSessions), ticketId);

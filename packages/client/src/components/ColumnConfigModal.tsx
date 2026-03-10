@@ -75,10 +75,11 @@ export function ColumnConfigModal({ column, boardId, onClose }: ColumnConfigModa
                             <option value="none">{t('agent.none' as any)}</option>
                             <option value="dummy">{t('agent.dummy' as any)}</option>
                             <option value="opencode">OpenCode Agent</option>
+                            <option value="code_review">Code Review Agent</option>
                         </select>
                     </div>
 
-                    {agentType === 'opencode' && (
+                    {(agentType === 'opencode' || agentType === 'code_review') && (
                         <>
                             <div className={styles.formGroup}>
                                 <label className={styles.label}>OpenCode Model</label>

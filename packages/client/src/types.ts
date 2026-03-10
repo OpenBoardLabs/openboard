@@ -1,7 +1,7 @@
 // Shared types — mirrors server types.ts for zero-dependency sync
 export type Priority = 'low' | 'medium' | 'high' | 'urgent';
 
-export type AgentType = 'dummy' | 'none' | 'opencode';
+export type AgentType = 'dummy' | 'none' | 'opencode' | 'code_review';
 
 export interface BoardWorkspace {
     id: string;

@@ -2,6 +2,8 @@ node_modules/
 dist/
 build/
 
+gh_2.54.0_linux_amd64/
+
 # Logs
 logs
 *.log

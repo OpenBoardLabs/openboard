@@ -31,7 +31,8 @@ export async function setupOpencodeEventListener(
     activeSessions: Record<string, string>,
     worktreePath: string,
     originalWorkspacePath: string,
-    branchName: string
+    branchName: string,
+    agentType: 'opencode' | 'code_review' = 'opencode'
 ) {
     const processedMessages = new Set<string>();
     const processedTools = new Set<string>();
@@ -39,9 +40,6 @@ export async function setupOpencodeEventListener(
 
     try {
         for await (const event of events.stream) {
-
-            console.log(`[opencode-agent] Received event: ${JSON.stringify(event)}`);
-
             // FILTER for events belonging solely to THIS session
             const eventSessionId = (event.properties as any)?.sessionID || (event.properties as any)?.info?.sessionID || (event.properties as any)?.part?.sessionID;
             if (eventSessionId && eventSessionId !== sessionID) continue;
@@ -188,86 +186,188 @@ export async function setupOpencodeEventListener(
                     // Mark the ticket as done now that the agent session finished processing
                     ticketRepository.updateAgentSession(ticket.id, {
                         column_id: ticket.column_id,
-                        agent_type: 'opencode',
+                        agent_type: agentType,
                         status: 'done',
                         port: 4096,
                         url: agentUrl
                     });
 
-                    // Commit, push, and create PR before moving ticket
-                    try {
-                        console.log(`[opencode-agent] Checking for changes in worktree ${worktreePath}`);
-                        const { stdout: statusOut } = await runCmd('git', ['status', '--porcelain'], worktreePath);
+                    if (agentType === 'code_review') {
+                        try {
+                            // Find out if the PR was approved or changes requested
+                            const prUrlSession = [...(ticket.agent_sessions || [])].reverse().find(s => s.pr_url);
+                            const prUrl = prUrlSession?.pr_url;
+                            if (prUrl) {
+                                const { stdout: prStatus } = await runCmd('gh', ['pr', 'view', prUrl, '--json', 'comments'], worktreePath);
+                                const comments = JSON.parse(prStatus).comments;
 
-                        if (statusOut.trim()) {
-                            console.log(`[opencode-agent] Changes found for ticket ${ticket.id}. Committing and pushing.`);
-                            await runCmd('git', ['add', '.'], worktreePath);
-                            await runCmd('git', ['commit', '-m', `"${ticket.title.replace(/"/g, '\\"')}"`], worktreePath);
+                                // Find the latest comment that contains a decision
+                                let reviewDecision = 'NONE';
 
-                            // Authenticate git push using gh token
-                            try {
-                                const { stdout: ghToken } = await runCmd('gh', ['auth', 'token'], worktreePath);
-                                const token = ghToken.trim();
-                                if (token) {
-                                    const { stdout: remoteUrlOut } = await runCmd('git', ['config', '--get', 'remote.origin.url'], worktreePath);
-                                    let remoteUrl = remoteUrlOut.trim();
-                                    if (remoteUrl.startsWith('https://github.com/')) {
-                                        remoteUrl = remoteUrl.replace('https://github.com/', `https://x-access-token:${token}@github.com/`);
-                                        await runCmd('git', ['remote', 'set-url', 'origin', remoteUrl], worktreePath);
+                                // 1. Check GitHub PR comments First
+                                if (comments && comments.length > 0) {
+                                    for (const comment of [...comments].reverse()) {
+                                        const bodyLower = comment.body.toLowerCase();
+                                        if (bodyLower.includes('[approved]') || bodyLower.includes('approve the pr') || bodyLower.includes('lgtm') || bodyLower.includes('approved')) {
+                                            reviewDecision = 'APPROVED';
+                                            break;
+                                        }
+                                        if (bodyLower.includes('[changes_requested]') || bodyLower.includes('request changes') || bodyLower.includes('changes requested') || bodyLower.includes('changes are needed')) {
+                                            reviewDecision = 'CHANGES_REQUESTED';
+                                            break;
+                                        }
                                     }
                                 }
-                            } catch (authErr) {
-                                console.warn(`[opencode-agent] Could not inject GH auth token:`, authErr);
+
+                                // 2. Fallback to Local Chat Logs
+                                if (reviewDecision === 'NONE') {
+                                    const localDbComments = commentRepository.findByTicketId(ticket.id);
+                                    if (localDbComments && localDbComments.length > 0) {
+                                        for (const dbC of [...localDbComments].reverse()) {
+                                            const bodyLower = dbC.content.toLowerCase();
+                                            if (bodyLower.includes('[approved]') || bodyLower.includes('approve the pr') || bodyLower.includes('lgtm') || bodyLower.includes('approved')) {
+                                                reviewDecision = 'APPROVED';
+                                                break;
+                                            }
+                                            if (bodyLower.includes('[changes_requested]') || bodyLower.includes('request changes') || bodyLower.includes('changes requested') || bodyLower.includes('changes are needed')) {
+                                                reviewDecision = 'CHANGES_REQUESTED';
+                                                break;
+                                            }
+                                        }
+                                    }
+                                }
+
+                                console.log(`[codereview-agent] PR ${prUrl} review decision parsed from comments: ${reviewDecision}`);
+
+                                if (reviewDecision === 'APPROVED') {
+                                    commentRepository.create({
+                                        ticketId: ticket.id,
+                                        author: 'System',
+                                        content: `✅ **Code Review Approved!**\n\nThe agent approved the PR.`
+                                    });
+
+                                    // Move ticket to the configured destination column (if set)
+                                    if (config.on_finish_column_id) {
+                                        console.log(`[codereview-agent] Moving ticket ${ticket.id} forward to column ${config.on_finish_column_id}`);
+                                        const moved = ticketRepository.move(ticket.id, config.on_finish_column_id, 0);
+                                        if (moved) {
+                                            import('./agent-runner.js').then(({ triggerAgent }) => {
+                                                triggerAgent(moved);
+                                            }).catch(err => console.error("Failed to trigger agent runner", err));
+                                        }
+                                    }
+                                } else if (reviewDecision === 'CHANGES_REQUESTED') {
+                                    commentRepository.create({
+                                        ticketId: ticket.id,
+                                        author: 'System',
+                                        content: `⚠️ **Changes Requested**\n\nThe agent has requested changes on the PR. Sending ticket back for revision.`
+                                    });
+
+                                    // Find the previous column the ticket was in BEFORE reaching this column
+                                    const previousSession = [...(ticket.agent_sessions || [])].reverse().find(s => s.column_id !== ticket.column_id);
+                                    if (previousSession) {
+                                        console.log(`[codereview-agent] Moving ticket ${ticket.id} back to previous column ${previousSession.column_id}`);
+                                        const moved = ticketRepository.move(ticket.id, previousSession.column_id, 0);
+                                        if (moved) {
+                                            // Ensure the 'done' state for the opencode agent in that column is removed
+                                            const updatedSessions = moved.agent_sessions.filter(s => !(s.column_id === previousSession.column_id && (s.status === 'blocked' || s.status === 'done')));
+                                            moved.agent_sessions = updatedSessions;
+                                            import('../db/database.js').then(({ getDb }) => {
+                                                getDb().prepare('UPDATE tickets SET agent_sessions = ? WHERE id = ?').run(JSON.stringify(updatedSessions), moved.id);
+                                            });
+
+                                            import('./agent-runner.js').then(({ triggerAgent }) => {
+                                                triggerAgent(moved, true); // Re-trigger the dev agent with force=true to ignore 'done' history
+                                            }).catch(err => console.error("Failed to trigger agent runner", err));
+                                        }
+                                    }
+                                } else {
+                                    commentRepository.create({
+                                        ticketId: ticket.id,
+                                        author: 'System',
+                                        content: `ℹ️ **Code Review Finished**\n\nThe review was completed, but no explicit approval or changes were requested.`
+                                    });
+                                }
                             }
+                        } catch (err: any) {
+                            console.error(`[codereview-agent] Error handling post-review logic`, err);
+                        }
+                    } else if (agentType === 'opencode') {
+                        // Commit, push, and create PR before moving ticket
+                        try {
+                            console.log(`[opencode-agent] Checking for changes in worktree ${worktreePath}`);
+                            const { stdout: statusOut } = await runCmd('git', ['status', '--porcelain'], worktreePath);
 
-                            await runCmd('git', ['push', '-u', 'origin', branchName], worktreePath);
+                            if (statusOut.trim()) {
+                                console.log(`[opencode-agent] Changes found for ticket ${ticket.id}. Committing and pushing.`);
+                                await runCmd('git', ['add', '.'], worktreePath);
+                                await runCmd('git', ['commit', '-m', `"${ticket.title.replace(/"/g, '\\"')}"`], worktreePath);
 
-                            const { stdout: prOut } = await runCmd('gh', ['pr', 'create', '--title', `"${ticket.title.replace(/"/g, '\\"')}"`, '--body', `"Automated PR from OpenCode Agent for ticket #${ticket.id}"`], worktreePath);
+                                // Authenticate git push using gh token
+                                try {
+                                    const { stdout: ghToken } = await runCmd('gh', ['auth', 'token'], worktreePath);
+                                    const token = ghToken.trim();
+                                    if (token) {
+                                        const { stdout: remoteUrlOut } = await runCmd('git', ['config', '--get', 'remote.origin.url'], worktreePath);
+                                        let remoteUrl = remoteUrlOut.trim();
+                                        if (remoteUrl.startsWith('https://github.com/')) {
+                                            remoteUrl = remoteUrl.replace('https://github.com/', `https://x-access-token:${token}@github.com/`);
+                                            await runCmd('git', ['remote', 'set-url', 'origin', remoteUrl], worktreePath);
+                                        }
+                                    }
+                                } catch (authErr) {
+                                    console.warn(`[opencode-agent] Could not inject GH auth token:`, authErr);
+                                }
 
-                            const prUrl = prOut.trim();
+                                await runCmd('git', ['push', '-u', 'origin', branchName], worktreePath);
 
+                                const { stdout: prOut } = await runCmd('gh', ['pr', 'create', '--title', `"${ticket.title.replace(/"/g, '\\"')}"`, '--body', `"Automated PR from OpenCode Agent for ticket #${ticket.id}"`], worktreePath);
+
+                                const prUrl = prOut.trim();
+
+                                commentRepository.create({
+                                    ticketId: ticket.id,
+                                    author: 'System',
+                                    content: `🚀 **Pull Request Created**\n\nThe agent has proposed the following changes in a PR. Check it out:\n${prUrl}`
+                                });
+
+                                // Add PR URL to the active agent session so the UI displays the code review button
+                                ticketRepository.updateAgentSession(ticket.id, {
+                                    column_id: ticket.column_id,
+                                    agent_type: 'opencode',
+                                    status: 'done',
+                                    port: 4096,
+                                    url: agentUrl,
+                                    pr_url: prUrl
+                                });
+                            } else {
+                                console.log(`[opencode-agent] No changes to push for ticket ${ticket.id}.`);
+                                commentRepository.create({
+                                    ticketId: ticket.id,
+                                    author: 'System',
+                                    content: `ℹ️ **Task Completed (No Changes)**\n\nThe agent finished the task but did not make any code changes.`
+                                });
+                            }
+                        } catch (error: any) {
+                            console.error(`[opencode-agent] Failed to create PR for ticket ${ticket.id}`, error);
                             commentRepository.create({
                                 ticketId: ticket.id,
                                 author: 'System',
-                                content: `🚀 **Pull Request Created**\n\nThe agent has proposed the following changes in a PR. Check it out:\n${prUrl}`
-                            });
-
-                            // Add PR URL to the active agent session so the UI displays the code review button
-                            ticketRepository.updateAgentSession(ticket.id, {
-                                column_id: ticket.column_id,
-                                agent_type: 'opencode',
-                                status: 'done',
-                                port: 4096,
-                                url: agentUrl,
-                                pr_url: prUrl
-                            });
-                        } else {
-                            console.log(`[opencode-agent] No changes to push for ticket ${ticket.id}.`);
-                            commentRepository.create({
-                                ticketId: ticket.id,
-                                author: 'System',
-                                content: `ℹ️ **Task Completed (No Changes)**\n\nThe agent finished the task but did not make any code changes.`
+                                content: `❌ **Failed to Create PR**\n\nThe agent finished the task, but an error occurred while pushing changes or creating the PR:\n\`\`\`\n${error.message}\n\`\`\``
                             });
                         }
-                    } catch (error: any) {
-                        console.error(`[opencode-agent] Failed to create PR for ticket ${ticket.id}`, error);
-                        commentRepository.create({
-                            ticketId: ticket.id,
-                            author: 'System',
-                            content: `❌ **Failed to Create PR**\n\nThe agent finished the task, but an error occurred while pushing changes or creating the PR:\n\`\`\`\n${error.message}\n\`\`\``
-                        });
-                    }
 
-                    // Move ticket to the configured destination column (if set)
-                    if (config.on_finish_column_id) {
-                        console.log(`[opencode-agent] Moving ticket ${ticket.id} to column ${config.on_finish_column_id}`);
-                        const moved = ticketRepository.move(ticket.id, config.on_finish_column_id, 0);
-                        if (moved) {
-                            import('./agent-runner.js').then(({ triggerAgent }) => {
-                                triggerAgent(moved);
-                            }).catch(err => console.error("Failed to trigger agent runner", err));
+                        // Move ticket to the configured destination column (if set)
+                        if (config.on_finish_column_id) {
+                            console.log(`[opencode-agent] Moving ticket ${ticket.id} to column ${config.on_finish_column_id}`);
+                            const moved = ticketRepository.move(ticket.id, config.on_finish_column_id, 0);
+                            if (moved) {
+                                import('./agent-runner.js').then(({ triggerAgent }) => {
+                                    triggerAgent(moved);
+                                }).catch(err => console.error("Failed to trigger agent runner", err));
+                            }
                         }
-                    }
+                    } // End of agentType === 'opencode' block
                 }
 
                 // Cleanup worktree

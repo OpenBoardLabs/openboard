@@ -78,12 +78,34 @@ export class OpencodeAgent implements Agent {
         }
 
         // 2. Create Worktree
-        const branchName = `ticket-${ticket.id}-${Date.now()}`;
+        const previousPrSession = [...(ticket.agent_sessions || [])].reverse().find(s => s.pr_url);
+        const existingPrUrl = previousPrSession?.pr_url;
+
+        let branchName = `ticket-${ticket.id}-${Date.now()}`;
         const tempWorktreePath = path.join(os.tmpdir(), 'openboard-worktrees', branchName);
 
         try {
-            console.log(`[opencode-agent] Creating git worktree for ticket ${ticket.id} at ${tempWorktreePath} on branch ${branchName}`);
-            await runCmd('git', ['worktree', 'add', '-b', branchName, tempWorktreePath], originalWorkspacePath);
+            if (existingPrUrl) {
+                console.log(`[opencode-agent] Found existing PR ${existingPrUrl}. Attempting to checkout existing branch.`);
+                try {
+                    const { stdout: prDataStr } = await runCmd('gh', ['pr', 'view', existingPrUrl, '--json', 'headRefName'], originalWorkspacePath);
+                    const prData = JSON.parse(prDataStr);
+                    if (prData.headRefName) {
+                        branchName = prData.headRefName;
+                        console.log(`[opencode-agent] Existing branch is ${branchName}. Checking it out into worktree.`);
+                        // Check out the existing branch
+                        await runCmd('git', ['worktree', 'add', tempWorktreePath, branchName], originalWorkspacePath);
+                    } else {
+                        throw new Error("Could not parse headRefName from PR");
+                    }
+                } catch (ghErr) {
+                    console.warn(`[opencode-agent] Failed to fetch existing PR branch, falling back to new branch.`, ghErr);
+                    await runCmd('git', ['worktree', 'add', '-b', branchName, tempWorktreePath], originalWorkspacePath);
+                }
+            } else {
+                console.log(`[opencode-agent] Creating new git worktree for ticket ${ticket.id} at ${tempWorktreePath} on branch ${branchName}`);
+                await runCmd('git', ['worktree', 'add', '-b', branchName, tempWorktreePath], originalWorkspacePath);
+            }
         } catch (e: any) {
             console.error(`[opencode-agent] Failed to create git worktree: ${e.message}`);
 
@@ -151,12 +173,19 @@ export class OpencodeAgent implements Agent {
             // ------------------------------------------
 
             // Send first message asynchronously (doesn't wait for completion)
+
+            let promptText = `# TASK: ${ticket.title}\n\n## Description\n${ticket.description}\n\n## Instructions\n1. The current working directory you should focus on is ${tempWorktreePath}.\n`;
+
+            if (existingPrUrl) {
+                promptText += `\n⚠️ **ATTENTION: CHANGES REQUESTED** ⚠️\nYou previously worked on this ticket and opened PR ${existingPrUrl}. However, changes were requested during code review.\n\nPlease use \`gh pr view ${existingPrUrl} --comments\` to read the requested changes, make the necessary code updates to fix the issues, and summarize your fixes.\n`;
+            }
+
             const promptRes = await opencodeClient.session.promptAsync({
                 path: { id: sessionID },
                 body: {
                     parts: [{
                         type: "text",
-                        text: `# TASK: ${ticket.title}\n\n## Description\n${ticket.description}\n\n## Instructions\n1. The current working directory you should focus on is ${tempWorktreePath}.\n`
+                        text: promptText
                     }]
                 }
             });

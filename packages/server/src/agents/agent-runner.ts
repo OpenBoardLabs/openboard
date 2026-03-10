@@ -4,11 +4,13 @@ import { columnConfigRepository } from '../repositories/column-config.repository
 import { ticketRepository } from '../repositories/ticket.repository.js';
 import { DummyAgent } from './dummy.agent.js';
 import { OpencodeAgent } from './opencode.agent.js';
+import { CodeReviewAgent } from './codereview.agent.js';
 
 /** Maps every known AgentType to its constructor. Add new agent types here. */
 const agentRegistry: Partial<Record<AgentType, new () => Agent>> = {
     dummy: DummyAgent,
     opencode: OpencodeAgent,
+    code_review: CodeReviewAgent,
 };
 
 import { agentQueue } from './agent-queue.js';
