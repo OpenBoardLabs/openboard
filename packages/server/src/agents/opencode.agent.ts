@@ -206,7 +206,13 @@ export class OpencodeAgent implements Agent {
                 console.warn(`[opencode-agent] Could not fetch GH token:`, authErr);
             }
 
-            let promptText = `# TASK: ${ticket.title}\n\n## Description\n${ticket.description}\n\n## Instructions\n1. The current working directory you should focus on is ${worktreePath}.\n`;
+            const ghTokenInstructions = ghTokenEnv
+                ? `\n\n> **Note:** You have access to GH_TOKEN. When running any \`gh\` command, use the prefix \`${ghTokenEnv}\` (e.g., \`${ghTokenEnv}gh pr status\`).`
+                : '';
+
+            let promptText = `# TASK: ${ticket.title}\n\n## Description\n${ticket.description}\n\n## Instructions
+1. The current working directory you should focus on is ${worktreePath}.${ghTokenInstructions}
+`;
 
             if (existingPrUrl) {
                 promptText += `\n⚠️ **ATTENTION: CHANGES REQUESTED** ⚠️\nYou previously worked on this ticket and opened PR ${existingPrUrl}. However, changes were requested during code review.\n\nPlease use \`${ghTokenEnv}gh pr view ${existingPrUrl} --comments\` to read the requested changes, make the necessary code updates to fix the issues, and summarize your fixes.\n`;
