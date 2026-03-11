@@ -7,6 +7,7 @@
     transition: background var(--transition-fast), border-color var(--transition-fast),
         box-shadow var(--transition-fast), transform var(--transition-fast);
     user-select: none;
+    position: relative;
 }
 
 .card:hover {
@@ -51,6 +52,17 @@
     color: var(--color-text-primary);
     line-height: var(--line-height-tight);
     margin-bottom: var(--space-1);
+}
+
+.titleWithPr {
+    padding-right: 64px;
+}
+
+.prButtonOverlay {
+    position: absolute;
+    top: var(--space-2);
+    right: var(--space-2);
+    z-index: 10;
 }
 
 .description {
