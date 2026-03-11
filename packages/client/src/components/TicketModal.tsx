@@ -104,6 +104,9 @@ export function TicketModal({ ticket, columnId, onClose }: TicketModalProps) {
                                 <div key={session.started_at} className={`${styles.statusBadge} ${styles.done}`}>
                                     <CheckCircle size={12} />
                                     {t('agent.status.done' as any)}
+                                    {session.total_cost !== undefined && session.total_cost > 0 && (
+                                        <span className={styles.costBadge}>${session.total_cost.toFixed(2)}</span>
+                                    )}
                                 </div>
                             );
                             if (session.status === 'blocked') return (
@@ -246,6 +249,9 @@ export function TicketModal({ ticket, columnId, onClose }: TicketModalProps) {
                                                 <span className={`${styles.historyStatus} ${styles[session.status] || ''}`}>
                                                     {session.status === 'needs_approval' ? 'Needs Approval' : session.status}
                                                 </span>
+                                                {session.total_cost !== undefined && session.total_cost > 0 && (
+                                                    <span className={styles.historyCost}>${session.total_cost.toFixed(2)}</span>
+                                                )}
                                             </div>
                                             <div className={styles.historyLinks}>
                                                 {(session.url || session.port) && (

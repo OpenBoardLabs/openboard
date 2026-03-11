@@ -152,6 +152,7 @@ export const ticketRepository = {
             pr_url?: string;
             port?: number;
             error_message?: string;
+            total_cost?: number;
         }
     ): Ticket | undefined {
         const ticket = this.findById(id);

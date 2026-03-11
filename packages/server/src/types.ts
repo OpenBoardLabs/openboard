@@ -34,6 +34,7 @@ export interface AgentSession {
     pr_url?: string;
     port?: number;
     error_message?: string;
+    total_cost?: number;
     started_at: string;
     finished_at?: string;
 }

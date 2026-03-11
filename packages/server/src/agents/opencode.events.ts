@@ -67,6 +67,7 @@ export async function setupOpencodeEventListener(
     const processedMessages = new Set<string>();
     const processedTools = new Set<string>();
     const activeParts = new Map<string, { commentId: string, fullText: string }>();
+    let rawSessionCost = 0;
 
     try {
         for await (const event of events.stream) {
@@ -143,7 +144,10 @@ export async function setupOpencodeEventListener(
             }
                    // Handle Text Messages (Wait for assistant message to complete)
             if (event.type === 'message.updated') {
-                const info = event.properties.info;
+                const info = event.properties.info as any;
+                if (info.cost) {
+                    rawSessionCost += info.cost;
+                }
                 if (info.role === 'assistant' && info.time?.completed && !processedMessages.has(info.id)) {
                     processedMessages.add(info.id);
 
@@ -181,6 +185,12 @@ export async function setupOpencodeEventListener(
 
             // Handle Tool Completions and Reasoning Real-Time
             // (WE NOW IGNORE THESE AS PER USER REQUEST TO ONLY SHOW IMPORTANT COMMENTS)
+            if (event.type === 'message.part.updated') {
+                const part = event.properties.part as any;
+                if (part.type === 'step-finish' && part.cost) {
+                    rawSessionCost += part.cost;
+                }
+            }
             /*
             if (event.type === 'message.part.updated') {
                 const part = event.properties.part;
@@ -205,7 +215,8 @@ export async function setupOpencodeEventListener(
                         agent_type: agentType,
                         status: 'done',
                         port: 4096,
-                        url: agentUrl
+                        url: agentUrl,
+                        total_cost: rawSessionCost > 0 ? Number(rawSessionCost.toFixed(4)) : undefined
                     });
 
                     if (agentType === 'code_review') {
@@ -337,7 +348,7 @@ export async function setupOpencodeEventListener(
                                     commentRepository.create({
                                         ticketId: ticket.id,
                                         author: 'System',
-                                        content: `🚀 **Pull Request Updated**\n\nThe agent has updated the existing PR:\n${prUrl}`
+                                        content: `🚀 **Pull Request Updated**\n\nThe agent has updated the existing PR:\n${prUrl}${rawSessionCost > 0 ? `\n\n**Total Cost:** $${rawSessionCost.toFixed(4)}` : ''}`
                                     });
                                 } else {
                                     const { stdout: prOut } = await runCmd('gh', ['pr', 'create', '--title', `"${ticket.title.replace(/"/g, '\\"')}"`, '--body', `"Automated PR from OpenCode Agent for ticket #${ticket.id}"`], worktreePath);
@@ -345,7 +356,7 @@ export async function setupOpencodeEventListener(
                                     commentRepository.create({
                                         ticketId: ticket.id,
                                         author: 'System',
-                                        content: `🚀 **Pull Request Created**\n\nThe agent has proposed the following changes in a PR. Check it out:\n${prUrl}`
+                                        content: `🚀 **Pull Request Created**\n\nThe agent has proposed the following changes in a PR. Check it out:\n${prUrl}${rawSessionCost > 0 ? `\n\n**Total Cost:** $${rawSessionCost.toFixed(4)}` : ''}`
                                     });
                                 }
 
@@ -356,14 +367,15 @@ export async function setupOpencodeEventListener(
                                     status: 'done',
                                     port: 4096,
                                     url: agentUrl,
-                                    pr_url: prUrl
+                                    pr_url: prUrl,
+                                    total_cost: rawSessionCost > 0 ? Number(rawSessionCost.toFixed(4)) : undefined
                                 });
                             } else {
                                 console.log(`[opencode-agent] No changes to push for ticket ${ticket.id}.`);
                                 commentRepository.create({
                                     ticketId: ticket.id,
                                     author: 'System',
-                                    content: `ℹ️ **Task Completed (No Changes)**\n\nThe agent finished the task but did not make any code changes.`
+                                    content: `ℹ️ **Task Completed (No Changes)**\n\nThe agent finished the task but did not make any code changes.${rawSessionCost > 0 ? `\n\n**Total Cost:** $${rawSessionCost.toFixed(4)}` : ''}`
                                 });
                             }
                         } catch (error: any) {
