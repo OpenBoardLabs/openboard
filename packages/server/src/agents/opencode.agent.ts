@@ -85,13 +85,6 @@ export class OpencodeAgent implements Agent {
         // 1. Find Worktree (Use the directory where openboard was started)
         let originalWorkspacePath = process.cwd();
 
-        // Fix WSL path mapping if the Node server is running on Windows
-        if (originalWorkspacePath.startsWith('/mnt/')) {
-            const driveLetter = originalWorkspacePath.charAt(5).toUpperCase();
-            originalWorkspacePath = `${driveLetter}:\\${originalWorkspacePath.slice(7).replace(/\//g, '\\')}`;
-            console.log(`[opencode-agent] Normalized WSL path to Windows path for CWD: ${originalWorkspacePath}`);
-        }
-
         // 2. Set up Worktree
         // If this ticket already has a PR, we reuse the existing branch and worktree.
         // Worktree paths are derived from branch name so they are stable across re-runs.

@@ -3,10 +3,20 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import { createRequire } from 'module';
 import fs from 'fs';
+import os from 'os';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const DB_PATH = path.join(__dirname, '..', '..', '..', 'openboard.db');
+const openboardDir = path.join(os.homedir(), '.openboard');
+if (!fs.existsSync(openboardDir)) {
+  fs.mkdirSync(openboardDir, { recursive: true });
+}
+const DB_PATH = path.join(openboardDir, 'openboard.db');
 
+// Migrate old database if it exists
+const oldDbPath = path.join(__dirname, '..', '..', '..', 'openboard.db');
+if (fs.existsSync(oldDbPath) && !fs.existsSync(DB_PATH)) {
+  fs.copyFileSync(oldDbPath, DB_PATH);
+}
 // Resolve sql.js WASM dynamically — handles npm workspace node_modules hoisting
 const require = createRequire(import.meta.url);
 const sqlJsDir = path.dirname(require.resolve('sql.js/dist/sql-wasm.wasm'));

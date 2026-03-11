@@ -75,12 +75,6 @@ export class CodeReviewAgent implements Agent {
         // Resolve workspace path — code review runs in the main workspace (no new worktree needed).
         let workspacePath = process.cwd();
 
-        // Fix WSL path mapping if the Node server is running on Windows
-        if (workspacePath.startsWith('/mnt/')) {
-            const driveLetter = workspacePath.charAt(5).toUpperCase();
-            workspacePath = `${driveLetter}:\\${workspacePath.slice(7).replace(/\//g, '\\')}`;
-        }
-
         try {
             const session = await opencodeClient.session.create({
                 body: { title: `Code Review for Ticket: ${ticket.title}` },

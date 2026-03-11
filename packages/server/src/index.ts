@@ -69,8 +69,22 @@ async function start() {
         res.sendFile(path.join(clientExtPath, 'index.html'));
     });
 
-    app.listen(PORT, () => {
-        console.log(`[openboard] Server running at http://localhost:${PORT}`);
+    const server = app.listen(PORT);
+
+    server.on('listening', () => {
+        const address = server.address();
+        const actualPort = typeof address === 'string' ? address : address?.port;
+        console.log(`[openboard] Server running at http://localhost:${actualPort}`);
+    });
+
+    server.on('error', (err: any) => {
+        if (err.code === 'EADDRINUSE') {
+            console.log(`[openboard] Port ${PORT} is in use, trying a random available port...`);
+            server.close();
+            server.listen(0);
+        } else {
+            console.error('[openboard] Server error:', err);
+        }
     });
 }
 

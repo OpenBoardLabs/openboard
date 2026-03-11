@@ -208,9 +208,11 @@ export async function setupOpencodeEventListener(
             if (event.type === 'session.idle') {
                 console.log(`[opencode-agent] Agent task completed (idle) for ticket ${ticket.id}.`);
 
-                // Check if the session failed with a fatal error previously
+                // Check if the current session failed with a fatal error previously
                 const currentTicket = ticketRepository.findById(ticket.id);
-                const hasError = currentTicket?.agent_sessions?.some((s: any) => s.column_id === ticket.column_id && s.status === 'blocked');
+                const sessionsForColumn = currentTicket?.agent_sessions?.filter((s: any) => s.column_id === ticket.column_id) || [];
+                const latestSession = sessionsForColumn[sessionsForColumn.length - 1];
+                const hasError = latestSession?.status === 'blocked';
 
                 if (!hasError) {
                     // Mark the ticket as done now that the agent session finished processing
@@ -401,6 +403,9 @@ export async function setupOpencodeEventListener(
                     } // End of agentType === 'opencode' block
                 }
 
+                // Wait! Since this ticket finished processing, we should re-evaluate the CURRENT column
+                // so the next pending ticket can be picked up by an agent.
+                agentQueue.evaluateColumnQueue(ticket.column_id);
 
                 // Clean up the server instance tracking after a brief delay
                 setTimeout(() => {
