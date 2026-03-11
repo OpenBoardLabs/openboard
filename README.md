@@ -3,6 +3,9 @@ This is a work on progress, contribuations are welcome.
 
 ![Openboard Screenshot](./screenshot.png)
 
+
+
+
 Openboard is not just another Kanban board—it is an orchestration platform specifically designed to **manage, monitor, and collaborate with autonomous AI coding agents**. While it features a real-time Kanban interface built with React and Node.js, our primary focus is on providing a seamless environment for agents to pick up tasks, execute them in isolation, and submit their work.
 
 ## Why Openboard? Managing Coding Agents
@@ -21,6 +24,16 @@ To allow multiple agents to work in parallel without tripping over each other, O
 
 - **Git Worktrees**: When an agent picks up a ticket, it doesn't just check out a branch in your main project folder. Instead, it creates an isolated feature branch and a dedicated git worktree for it. This provides the agent with its own physical directory and working tree to modify files, run tests, and commit changes comfortably, all while ensuring your main workspace remains untouched.
 - **PR Generation (`gh`)**: Once the agent finishes its implementation, it uses the GitHub CLI to automatically push its branch and open a Pull Request for human review, progressing the ticket to a "Needs Approval" state on the board.
+
+## QuickStart
+
+Make sure you have opencode, git and gh cli installed.
+
+```
+npm i -g @m0xoo/openboard
+cd /path/to/ptoject
+openboard
+```
 
 ## Tech Stack
 
