@@ -1,6 +1,6 @@
 {
   "name": "@m0xoo/openboard",
-  "version": "1.0.10",
+  "version": "1.0.12",
   "type": "module",
   "bin": {
     "openboard": "./bin/openboard.js"

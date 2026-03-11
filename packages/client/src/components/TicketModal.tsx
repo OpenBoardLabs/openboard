@@ -131,12 +131,21 @@ export function TicketModal({ ticket, columnId, onClose }: TicketModalProps) {
                                     break;
                                 }
                             }
-                            if (!activeSession) return null;
+
+                            let prSession = null;
+                            for (let i = ticket.agent_sessions.length - 1; i >= 0; i--) {
+                                if (ticket.agent_sessions[i].pr_url) {
+                                    prSession = ticket.agent_sessions[i];
+                                    break;
+                                }
+                            }
+
+                            if (!activeSession && !prSession) return null;
                             const session = activeSession;
 
                             return (
-                                <React.Fragment key={session.started_at}>
-                                    {session.status === 'blocked' && (
+                                <React.Fragment key={(session?.started_at || prSession?.started_at)}>
+                                    {session?.status === 'blocked' && (
                                         <button
                                             className={styles.sessionBtn}
                                             onClick={() => retryTicket(ticket.board_id, ticket.id)}
@@ -146,7 +155,7 @@ export function TicketModal({ ticket, columnId, onClose }: TicketModalProps) {
                                             <span>Retry Agent</span>
                                         </button>
                                     )}
-                                    {session.url && (
+                                    {session?.url && (
                                         <a
                                             href={session.url}
                                             target="_blank"
@@ -156,6 +165,19 @@ export function TicketModal({ ticket, columnId, onClose }: TicketModalProps) {
                                         >
                                             <ExternalLink size={14} />
                                             <span>Agent session</span>
+                                        </a>
+                                    )}
+                                    {prSession?.pr_url && (
+                                        <a
+                                            href={prSession.pr_url}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            className={styles.sessionBtn}
+                                            style={{ backgroundColor: '#2da44e', color: 'white', borderColor: '#2da44e' }}
+                                            title="View Code Review"
+                                        >
+                                            <GitPullRequest size={14} />
+                                            <span>PR</span>
                                         </a>
                                     )}
                                 </React.Fragment>
