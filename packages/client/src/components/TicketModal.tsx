@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import ReactMarkdown from 'react-markdown';
 import { t } from '../i18n/i18n';
 import { useApp } from '../store/AppContext';
 import type { Ticket, Priority } from '../types';
@@ -306,7 +307,9 @@ export function TicketModal({ ticket, columnId, onClose }: TicketModalProps) {
                                                 {new Date(c.created_at).toLocaleString()}
                                             </span>
                                         </div>
-                                        <div className={styles.commentContent}>{c.content}</div>
+                                        <div className={styles.commentContent}>
+                                            <ReactMarkdown>{c.content}</ReactMarkdown>
+                                        </div>
                                     </div>
                                 ))}
                                 {ticketComments.length === 0 && (

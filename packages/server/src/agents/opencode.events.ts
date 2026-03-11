@@ -141,8 +141,7 @@ export async function setupOpencodeEventListener(
                     });
                 }
             }
-
-            // Handle Text Messages (Wait for assistant message to complete)
+                   // Handle Text Messages (Wait for assistant message to complete)
             if (event.type === 'message.updated') {
                 const info = event.properties.info;
                 if (info.role === 'assistant' && info.time?.completed && !processedMessages.has(info.id)) {
@@ -153,12 +152,22 @@ export async function setupOpencodeEventListener(
                         if (messagesRes.data) {
                             const targetMsg = (messagesRes.data as any[]).find((m: any) => m.info.id === info.id);
                             if (targetMsg && targetMsg.parts) {
+                                let combinedText = '';
                                 for (const part of targetMsg.parts) {
                                     if (part.type === 'text' && part.text?.trim()) {
+                                        combinedText += (combinedText ? '\n\n' : '') + part.text.trim();
+                                    }
+                                }
+
+                                if (combinedText) {
+                                    const existing = activeParts.get(info.id); // info.id is messageID
+                                    if (existing) {
+                                        commentRepository.update(existing.commentId, combinedText);
+                                    } else {
                                         commentRepository.create({
                                             ticketId: ticket.id,
                                             author: 'opencode',
-                                            content: part.text.trim()
+                                            content: combinedText
                                         });
                                     }
                                 }
@@ -171,38 +180,13 @@ export async function setupOpencodeEventListener(
             }
 
             // Handle Tool Completions and Reasoning Real-Time
+            // (WE NOW IGNORE THESE AS PER USER REQUEST TO ONLY SHOW IMPORTANT COMMENTS)
+            /*
             if (event.type === 'message.part.updated') {
                 const part = event.properties.part;
-
-
-
-                // 1. Handle tool executions
-                if (part.type === 'tool' && part.state?.status === 'completed' && !processedTools.has(part.id)) {
-                    processedTools.add(part.id);
-                    let content = `Executed \`${part.tool}\``;
-                    if (part.state.title) content += `\n*${part.state.title}*`;
-
-                    commentRepository.create({
-                        ticketId: ticket.id,
-                        author: 'opencode',
-                        content: content
-                    });
-                }
-
-                // 2. Handle final reasoning/thoughts block (if not caught by deltas)
-                if (part.type === 'reasoning' && !processedTools.has(part.id)) {
-                    processedTools.add(part.id);
-
-                    // If we already tracked this via deltas, don't recreate it
-                    if (!activeParts.has(part.id) && part.text && part.text.trim()) {
-                        commentRepository.create({
-                            ticketId: ticket.id,
-                            author: 'opencode (thought)',
-                            content: part.text.trim()
-                        });
-                    }
-                }
+                // ... logic removed ...
             }
+            */
 
             // Handle Session Idle (Task Completed)
             if (event.type === 'session.idle') {
@@ -419,8 +403,13 @@ export async function setupOpencodeEventListener(
                 const partID = (event as any).properties.partID;
                 const delta = (event as any).properties.delta;
 
-                if (delta) {
-                    let tracking = activeParts.get(partID);
+                // To know if this part is 'text', we check if we've seen it as text in a part.updated
+                // or if it belongs to an assistant message we want to track.
+                // However, to satisfy "one comment per section", we should group by messageID.
+                const messageID = (event.properties as any).messageID;
+
+                if (delta && messageID) {
+                    let tracking = activeParts.get(messageID);
                     if (!tracking) {
                         // create initial comment
                         const comment = commentRepository.create({
@@ -429,7 +418,7 @@ export async function setupOpencodeEventListener(
                             content: delta
                         });
                         tracking = { commentId: comment.id, fullText: delta };
-                        activeParts.set(partID, tracking);
+                        activeParts.set(messageID, tracking);
                     } else {
                         // update existing comment
                         tracking.fullText += delta;
