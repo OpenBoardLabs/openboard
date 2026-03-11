@@ -164,7 +164,7 @@ export class OpencodeAgent implements Agent {
             activeSessions[ticket.id] = sessionID;
 
             // Compute exact OpenCode Tracking URL
-            const encodedPath = Buffer.from(worktreePath).toString('base64url');
+            const encodedPath = Buffer.from(originalWorkspacePath).toString('base64url');
             const agentUrl = `http://127.0.0.1:${opencodePort}/${encodedPath}/session/${sessionID}`;
 
             ticketRepository.updateAgentSession(ticket.id, {

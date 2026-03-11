@@ -11,6 +11,7 @@ if (!fs.existsSync(openboardDir)) {
   fs.mkdirSync(openboardDir, { recursive: true });
 }
 const DB_PATH = path.join(openboardDir, 'openboard.db');
+console.log("[db] DB_PATH", DB_PATH);
 
 // Migrate old database if it exists
 const oldDbPath = path.join(__dirname, '..', '..', '..', 'openboard.db');
