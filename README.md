@@ -32,7 +32,7 @@ Your folder should already have git init and a git repo configured.
 
 ```
 npm i -g @m0xoo/openboard
-cd /path/to/ptoject
+cd /path/to/project
 openboard
 ```
 
