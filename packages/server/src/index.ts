@@ -6,6 +6,11 @@ import { columnsRouter } from './routes/columns.router.js';
 import { ticketsRouter } from './routes/tickets.router.js';
 import { columnConfigRouter } from './routes/column-config.router.js';
 import { sseManager } from './sse.js';
+import path from 'path';
+import { fileURLToPath } from 'url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 const PORT = process.env.PORT ?? 3001;
 
@@ -55,6 +60,14 @@ async function start() {
     app.use('/api/boards/:boardId/tickets', ticketsRouter);
     app.use('/api/boards/:boardId/columns', columnConfigRouter);
     app.get('/api/health', (_req, res) => res.json({ status: 'ok' }));
+
+    // Serve the built client
+    const clientExtPath = path.join(__dirname, '../../client/dist');
+    app.use(express.static(clientExtPath));
+
+    app.get('*', (req, res) => {
+        res.sendFile(path.join(clientExtPath, 'index.html'));
+    });
 
     app.listen(PORT, () => {
         console.log(`[openboard] Server running at http://localhost:${PORT}`);

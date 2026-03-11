@@ -15,17 +15,18 @@ const execFileAsync = promisify(execFile);
 async function runCmd(cmd: string, args: string[], cwd: string): Promise<{ stdout: string, stderr: string }> {
     console.log(`[codereview-agent] Running: ${cmd} ${args.join(' ')} in cwd: ${cwd}`);
     try {
-        return await execFileAsync(cmd, args, { cwd, shell: true });
+        return await execFileAsync(cmd, args, { cwd });
     } catch (e: any) {
         if (e.code === 'ENOENT') {
-            console.log(`[codereview-agent] ENOENT with shell: true. Trying fallback exec...`);
+            console.log(`[codereview-agent] ENOENT finding binary. Trying fallback exec...`);
             return await execAsync(`${cmd} ${args.join(' ')}`, { cwd });
         }
         throw e;
     }
 }
 
-const opencodeClient = createOpencodeClient({ baseUrl: 'http://127.0.0.1:4096' });
+const opencodePort = process.env.OPENCODE_PORT || 4096;
+const opencodeClient = createOpencodeClient({ baseUrl: `http://127.0.0.1:${opencodePort}` });
 const activeSessions: Record<string, string> = {};
 
 export class CodeReviewAgent implements Agent {
@@ -59,7 +60,7 @@ export class CodeReviewAgent implements Agent {
             column_id: ticket.column_id,
             agent_type: 'code_review',
             status: 'processing',
-            port: 4096
+            port: Number(opencodePort)
         });
 
         if (activeSessions[ticket.id]) {
@@ -72,16 +73,7 @@ export class CodeReviewAgent implements Agent {
         }
 
         // Resolve workspace path — code review runs in the main workspace (no new worktree needed).
-        // The code review agent only reads the PR via `gh` commands; it does not write any code.
-        const board = boardRepository.findById(ticket.board_id);
-        if (!board) throw new Error(`Board not found: ${ticket.board_id}`);
-
-        const folderWorkspace = board.workspaces.find(ws => ws.type === 'folder');
-        if (!folderWorkspace) {
-            console.error(`[codereview-agent] No usable folder workspace found for board ${board.id}`);
-            return;
-        }
-        let workspacePath = folderWorkspace.path;
+        let workspacePath = process.cwd();
 
         // Fix WSL path mapping if the Node server is running on Windows
         if (workspacePath.startsWith('/mnt/')) {
@@ -101,13 +93,13 @@ export class CodeReviewAgent implements Agent {
             activeSessions[ticket.id] = sessionID;
 
             const encodedPath = Buffer.from(workspacePath).toString('base64url');
-            const agentUrl = `http://127.0.0.1:4096/${encodedPath}/session/${sessionID}`;
+            const agentUrl = `http://127.0.0.1:${opencodePort}/${encodedPath}/session/${sessionID}`;
 
             ticketRepository.updateAgentSession(ticket.id, {
                 column_id: ticket.column_id,
                 agent_type: 'code_review',
                 status: 'processing',
-                port: 4096,
+                port: Number(opencodePort),
                 url: agentUrl
             });
 

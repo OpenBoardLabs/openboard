@@ -19,7 +19,7 @@ let cachedGhToken: string | null = null;
 async function getGhToken(cwd: string): Promise<string | null> {
     if (cachedGhToken !== null) return cachedGhToken;
     try {
-        const { stdout } = await execFileAsync('gh', ['auth', 'token'], { cwd, shell: true });
+        const { stdout } = await execFileAsync('gh', ['auth', 'token'], { cwd });
         cachedGhToken = stdout.trim() || null;
     } catch {
         cachedGhToken = null;
@@ -40,11 +40,11 @@ async function runCmd(cmd: string, args: string[], cwd: string): Promise<{ stdou
     const env = Object.keys(extraEnv).length > 0 ? { ...process.env, ...extraEnv } : undefined;
 
     try {
-        return await execFileAsync(cmd, args, { cwd, shell: true, ...(env && { env }) });
+        return await execFileAsync(cmd, args, { cwd, ...(env && { env }) });
     } catch (e: any) {
         if (e.code === 'ENOENT') {
-            console.log(`[opencode-agent] ENOENT with shell: true. Trying fallback exec...`);
-            const envPrefix = extraEnv['GH_TOKEN'] ? `GH_TOKEN=${extraEnv['GH_TOKEN']} ` : '';
+            console.log(`[opencode-agent] ENOENT finding binary. Trying fallback exec...`);
+            const envPrefix = extraEnv['GH_TOKEN'] ? (process.platform === 'win32' ? `set GH_TOKEN=${extraEnv['GH_TOKEN']}&& ` : `GH_TOKEN=${extraEnv['GH_TOKEN']} `) : '';
             return await execAsync(`${envPrefix}${cmd} ${args.join(' ')}`, { cwd });
         }
         throw e;
@@ -52,7 +52,8 @@ async function runCmd(cmd: string, args: string[], cwd: string): Promise<{ stdou
 }
 
 // Central OpenCode client connecting to the user's running OpenCode server
-const opencodeClient = createOpencodeClient({ baseUrl: 'http://127.0.0.1:4096' });
+const opencodePort = process.env.OPENCODE_PORT || 4096;
+const opencodeClient = createOpencodeClient({ baseUrl: `http://127.0.0.1:${opencodePort}` });
 
 // Track active session IDs by ticket ID to prevent/cancel overlaps
 const activeSessions: Record<string, string> = {};
@@ -66,7 +67,7 @@ export class OpencodeAgent implements Agent {
             column_id: ticket.column_id,
             agent_type: 'opencode',
             status: 'processing',
-            port: 4096
+            port: Number(opencodePort)
         });
 
         // Prevent duplicate runs blocking new requests: replace the old session.
@@ -81,16 +82,8 @@ export class OpencodeAgent implements Agent {
             delete activeSessions[ticket.id];
         }
 
-        // 1. Find Worktree (For this MVP, we use the first folder workspace of the board)
-        const board = boardRepository.findById(ticket.board_id);
-        if (!board) throw new Error(`Board not found: ${ticket.board_id}`);
-
-        const folderWorkspace = board.workspaces.find(ws => ws.type === 'folder');
-        if (!folderWorkspace) {
-            console.error(`[opencode-agent] No usable folder workspace found for board ${board.id}`);
-            return;
-        }
-        let originalWorkspacePath = folderWorkspace.path;
+        // 1. Find Worktree (Use the directory where openboard was started)
+        let originalWorkspacePath = process.cwd();
 
         // Fix WSL path mapping if the Node server is running on Windows
         if (originalWorkspacePath.startsWith('/mnt/')) {
@@ -149,7 +142,7 @@ export class OpencodeAgent implements Agent {
                 column_id: ticket.column_id,
                 agent_type: 'opencode',
                 status: 'blocked',
-                port: 4096,
+                port: Number(opencodePort),
                 error_message: e.message
             });
             commentRepository.create({
@@ -179,13 +172,13 @@ export class OpencodeAgent implements Agent {
 
             // Compute exact OpenCode Tracking URL
             const encodedPath = Buffer.from(worktreePath).toString('base64url');
-            const agentUrl = `http://127.0.0.1:4096/${encodedPath}/session/${sessionID}`;
+            const agentUrl = `http://127.0.0.1:${opencodePort}/${encodedPath}/session/${sessionID}`;
 
             ticketRepository.updateAgentSession(ticket.id, {
                 column_id: ticket.column_id,
                 agent_type: 'opencode',
                 status: 'processing',
-                port: 4096,
+                port: Number(opencodePort),
                 url: agentUrl
             });
 

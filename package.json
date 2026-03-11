@@ -1,7 +1,15 @@
 {
-  "name": "openboard",
-  "version": "1.0.0",
-  "private": true,
+  "name": "@m0xoo/openboard",
+  "version": "1.0.1",
+  "type": "module",
+  "bin": {
+    "openboard": "./bin/openboard.js"
+  },
+  "files": [
+    "bin",
+    "packages/server/dist",
+    "packages/client/dist"
+  ],
   "workspaces": [
     "packages/server",
     "packages/client"
@@ -15,5 +23,11 @@
   },
   "devDependencies": {
     "concurrently": "^8.2.2"
+  },
+  "dependencies": {
+    "@opencode-ai/sdk": "^1.2.24",
+    "cors": "^2.8.5",
+    "express": "^4.18.3",
+    "sql.js": "^1.12.0"
   }
 }
