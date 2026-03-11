@@ -28,11 +28,11 @@ To allow multiple agents to work in parallel without tripping over each other, O
 ## QuickStart
 
 Make sure you have opencode, git and gh cli installed.
-Your folder should already have git init and a git repo configured.
+Your folder should already have git init and a github repo configured.
 
 ```
 npm i -g @m0xoo/openboard
-cd /path/to/ptoject
+cd /path/to/project
 openboard
 ```
 
