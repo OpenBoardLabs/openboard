@@ -1,4 +1,5 @@
 # Openboard: The AI Agent Orchestration Board
+This is a work on progress, contribuations are welcome.
 
 ![Openboard Screenshot](./screenshot.png)
 
