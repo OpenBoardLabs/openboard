@@ -195,10 +195,21 @@ export class OpencodeAgent implements Agent {
 
             // Send first message asynchronously (doesn't wait for completion)
 
+            // Fetch GH token so the LLM environment can execute `gh` commands
+            let ghTokenEnv = '';
+            try {
+                const { stdout: ghToken } = await runCmd('gh', ['auth', 'token'], originalWorkspacePath);
+                if (ghToken.trim()) {
+                    ghTokenEnv = `export GH_TOKEN=${ghToken.trim()}; `;
+                }
+            } catch (authErr) {
+                console.warn(`[opencode-agent] Could not fetch GH token:`, authErr);
+            }
+
             let promptText = `# TASK: ${ticket.title}\n\n## Description\n${ticket.description}\n\n## Instructions\n1. The current working directory you should focus on is ${worktreePath}.\n`;
 
             if (existingPrUrl) {
-                promptText += `\n⚠️ **ATTENTION: CHANGES REQUESTED** ⚠️\nYou previously worked on this ticket and opened PR ${existingPrUrl}. However, changes were requested during code review.\n\nPlease use \`gh pr view ${existingPrUrl} --comments\` to read the requested changes, make the necessary code updates to fix the issues, and summarize your fixes.\n`;
+                promptText += `\n⚠️ **ATTENTION: CHANGES REQUESTED** ⚠️\nYou previously worked on this ticket and opened PR ${existingPrUrl}. However, changes were requested during code review.\n\nPlease use \`${ghTokenEnv}gh pr view ${existingPrUrl} --comments\` to read the requested changes, make the necessary code updates to fix the issues, and summarize your fixes.\n`;
             }
 
             const promptRes = await opencodeClient.session.promptAsync({
