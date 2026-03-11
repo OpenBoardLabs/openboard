@@ -24,9 +24,10 @@ router.get('/:id/config', (req: Request, res: Response) => {
 
 // PUT /api/boards/:boardId/columns/:id/config
 router.put('/:id/config', (req: Request, res: Response) => {
-    const { agentType, onFinishColumnId } = req.body as {
+    const { agentType, onFinishColumnId, onRejectColumnId } = req.body as {
         agentType: AgentType;
         onFinishColumnId?: string | null;
+        onRejectColumnId?: string | null;
     };
     if (!agentType) {
         res.status(400).json({ error: 'agentType is required' });
@@ -36,6 +37,7 @@ router.put('/:id/config', (req: Request, res: Response) => {
         columnId: req.params.id,
         agentType,
         onFinishColumnId,
+        onRejectColumnId,
     });
     sseManager.emit(req.params.boardId, 'column:config:updated', config);
     res.json(config);

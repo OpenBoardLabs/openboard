@@ -19,6 +19,7 @@ export function ColumnConfigModal({ column, boardId, onClose }: ColumnConfigModa
     const [agentModel, setAgentModel] = useState(config?.agent_model ?? 'gpt-4o');
     const [maxAgents, setMaxAgents] = useState(config?.max_agents ?? 1);
     const [onFinishColumnId, setOnFinishColumnId] = useState<string>(config?.on_finish_column_id ?? '');
+    const [onRejectColumnId, setOnRejectColumnId] = useState<string>(config?.on_reject_column_id ?? '');
 
     const [isDirty, setIsDirty] = useState(false);
 
@@ -27,9 +28,10 @@ export function ColumnConfigModal({ column, boardId, onClose }: ColumnConfigModa
             agentType !== (config?.agent_type ?? 'none') ||
             agentModel !== (config?.agent_model ?? 'gpt-4o') ||
             maxAgents !== (config?.max_agents ?? 1) ||
-            onFinishColumnId !== (config?.on_finish_column_id ?? '')
+            onFinishColumnId !== (config?.on_finish_column_id ?? '') ||
+            onRejectColumnId !== (config?.on_reject_column_id ?? '')
         );
-    }, [agentType, agentModel, maxAgents, onFinishColumnId, config]);
+    }, [agentType, agentModel, maxAgents, onFinishColumnId, onRejectColumnId, config]);
 
     useEffect(() => {
         function handleKey(e: KeyboardEvent) {
@@ -47,7 +49,8 @@ export function ColumnConfigModal({ column, boardId, onClose }: ColumnConfigModa
                 agentType,
                 agentModel: agentType === 'opencode' ? agentModel : null,
                 maxAgents,
-                onFinishColumnId: onFinishColumnId || null
+                onFinishColumnId: onFinishColumnId || null,
+                onRejectColumnId: agentType === 'code_review' ? (onRejectColumnId || null) : null
             });
         }
         onClose();
@@ -107,11 +110,27 @@ export function ColumnConfigModal({ column, boardId, onClose }: ColumnConfigModa
 
                     {agentType !== 'none' && (
                         <div className={styles.formGroup}>
-                            <label className={styles.label}>{t('agent.on_finish' as any)}</label>
+                            <label className={styles.label}>On Finish Move To</label>
                             <select
                                 className={styles.select}
                                 value={onFinishColumnId}
                                 onChange={(e) => setOnFinishColumnId(e.target.value)}
+                            >
+                                <option value="">{t('agent.do_nothing' as any)}</option>
+                                {columns.filter(c => c.id !== column.id).map(c => (
+                                    <option key={c.id} value={c.id}>{t('agent.move_to' as any)} {c.name}</option>
+                                ))}
+                            </select>
+                        </div>
+                    )}
+
+                    {agentType === 'code_review' && (
+                        <div className={styles.formGroup}>
+                            <label className={styles.label}>On Reject Move To</label>
+                            <select
+                                className={styles.select}
+                                value={onRejectColumnId}
+                                onChange={(e) => setOnRejectColumnId(e.target.value)}
                             >
                                 <option value="">{t('agent.do_nothing' as any)}</option>
                                 {columns.filter(c => c.id !== column.id).map(c => (

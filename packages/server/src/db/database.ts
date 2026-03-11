@@ -182,5 +182,10 @@ function runMigrations() {
     console.log("[db] Migration: Added max_agents column to column_configs table");
   } catch (e: any) { }
 
+  try {
+    db.run("ALTER TABLE column_configs ADD COLUMN on_reject_column_id TEXT;");
+    console.log("[db] Migration: Added on_reject_column_id column to column_configs table");
+  } catch (e: any) { }
+
   persist();
 }

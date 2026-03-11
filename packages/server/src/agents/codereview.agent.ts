@@ -7,8 +7,6 @@ import { commentRepository } from '../repositories/comment.repository.js';
 import { setupOpencodeEventListener } from './opencode.events.js';
 import { execFile, exec } from 'child_process';
 import { promisify } from 'util';
-import os from 'os';
-import path from 'path';
 
 const execAsync = promisify(exec);
 const execFileAsync = promisify(execFile);
@@ -34,8 +32,11 @@ export class CodeReviewAgent implements Agent {
     async run(ticket: Ticket, config: ColumnConfig): Promise<void> {
         console.log(`[codereview-agent] Starting session for ticket ${ticket.id}...`);
 
+        // Fetch the absolute latest ticket from the DB to ensure we have the latest session history (with PR URLs)
+        const latestTicket = ticketRepository.findById(ticket.id) || ticket;
+
         // Find the PR URL from a previous session
-        const prUrlSession = [...(ticket.agent_sessions || [])].reverse().find(s => s.pr_url);
+        const prUrlSession = [...(latestTicket.agent_sessions || [])].reverse().find(s => s.pr_url);
         const prUrl = prUrlSession?.pr_url;
 
         if (!prUrl) {
@@ -70,7 +71,8 @@ export class CodeReviewAgent implements Agent {
             delete activeSessions[ticket.id];
         }
 
-        // Find Worktree
+        // Resolve workspace path — code review runs in the main workspace (no new worktree needed).
+        // The code review agent only reads the PR via `gh` commands; it does not write any code.
         const board = boardRepository.findById(ticket.board_id);
         if (!board) throw new Error(`Board not found: ${ticket.board_id}`);
 
@@ -79,34 +81,18 @@ export class CodeReviewAgent implements Agent {
             console.error(`[codereview-agent] No usable folder workspace found for board ${board.id}`);
             return;
         }
-        let originalWorkspacePath = folderWorkspace.path;
+        let workspacePath = folderWorkspace.path;
 
-        if (originalWorkspacePath.startsWith('/mnt/')) {
-            const driveLetter = originalWorkspacePath.charAt(5).toUpperCase();
-            originalWorkspacePath = `${driveLetter}:\\${originalWorkspacePath.slice(7).replace(/\//g, '\\')}`;
-        }
-
-        const branchName = `review-${ticket.id}-${Date.now()}`;
-        const tempWorktreePath = path.join(os.tmpdir(), 'openboard-worktrees', branchName);
-
-        try {
-            console.log(`[codereview-agent] Creating git worktree for ticket ${ticket.id} at ${tempWorktreePath}`);
-            await runCmd('git', ['worktree', 'add', '-b', branchName, tempWorktreePath], originalWorkspacePath);
-        } catch (e: any) {
-            console.error(`[codereview-agent] Failed to create git worktree: ${e.message}`);
-            ticketRepository.updateAgentSession(ticket.id, {
-                column_id: config.column_id,
-                agent_type: 'code_review',
-                status: 'blocked',
-                error_message: e.message
-            });
-            return;
+        // Fix WSL path mapping if the Node server is running on Windows
+        if (workspacePath.startsWith('/mnt/')) {
+            const driveLetter = workspacePath.charAt(5).toUpperCase();
+            workspacePath = `${driveLetter}:\\${workspacePath.slice(7).replace(/\//g, '\\')}`;
         }
 
         try {
             const session = await opencodeClient.session.create({
                 body: { title: `Code Review for Ticket: ${ticket.title}` },
-                query: { directory: tempWorktreePath }
+                query: { directory: workspacePath }
             });
 
             if (!session.data) throw new Error("Failed to create OpenCode session");
@@ -114,7 +100,7 @@ export class CodeReviewAgent implements Agent {
             const sessionID = session.data.id;
             activeSessions[ticket.id] = sessionID;
 
-            const encodedPath = Buffer.from(tempWorktreePath).toString('base64url');
+            const encodedPath = Buffer.from(workspacePath).toString('base64url');
             const agentUrl = `http://127.0.0.1:4096/${encodedPath}/session/${sessionID}`;
 
             ticketRepository.updateAgentSession(ticket.id, {
@@ -127,7 +113,8 @@ export class CodeReviewAgent implements Agent {
 
             const events = await opencodeClient.event.subscribe();
 
-            // Setup the event listener, telling it this is a 'code_review' agent
+            // Setup the event listener for code_review agent type.
+            // worktreePath = workspacePath (main workspace) — used for gh commands inside the event handler.
             setupOpencodeEventListener(
                 events,
                 opencodeClient,
@@ -136,16 +123,16 @@ export class CodeReviewAgent implements Agent {
                 agentUrl,
                 config,
                 activeSessions,
-                tempWorktreePath,
-                originalWorkspacePath,
-                branchName,
+                workspacePath,   // worktreePath — main workspace for gh commands
+                workspacePath,   // originalWorkspacePath — same here, no separate worktree
+                '',              // branchName — no branch created for code review
                 'code_review'
             );
 
-            // Wait, we need to pass the GH auth token to the LLM environment so it can execute `gh` commands.
+            // Fetch GH token so the LLM environment can execute `gh` commands
             let ghTokenEnv = '';
             try {
-                const { stdout: ghToken } = await runCmd('gh', ['auth', 'token'], originalWorkspacePath);
+                const { stdout: ghToken } = await runCmd('gh', ['auth', 'token'], workspacePath);
                 if (ghToken.trim()) {
                     ghTokenEnv = `export GH_TOKEN=${ghToken.trim()}; `;
                 }
@@ -166,6 +153,8 @@ export class CodeReviewAgent implements Agent {
             if (promptRes.error) {
                 throw new Error(`OpenCode session error: ${JSON.stringify(promptRes.error)}`);
             }
+
+            console.log(`[codereview-agent] Code review agent dispatched for ticket ${ticket.id}. Waiting for completion in background.`);
 
         } catch (e: any) {
             console.error(`[codereview-agent] Failed to initialize task over SDK: ${e.message}`);

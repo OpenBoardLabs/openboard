@@ -9,21 +9,43 @@ import { execFile, exec } from 'child_process';
 import { promisify } from 'util';
 import os from 'os';
 import path from 'path';
+import fs from 'fs';
 
 const execAsync = promisify(exec);
 const execFileAsync = promisify(execFile);
 
-// Helper function to execute commands robustly on Windows
+// Cache the gh token so we only fetch it once per server process
+let cachedGhToken: string | null = null;
+async function getGhToken(cwd: string): Promise<string | null> {
+    if (cachedGhToken !== null) return cachedGhToken;
+    try {
+        const { stdout } = await execFileAsync('gh', ['auth', 'token'], { cwd, shell: true });
+        cachedGhToken = stdout.trim() || null;
+    } catch {
+        cachedGhToken = null;
+    }
+    return cachedGhToken;
+}
+
+// Helper function to execute commands robustly on Windows.
+// Automatically injects GH_TOKEN for any `gh` subcommand.
 async function runCmd(cmd: string, args: string[], cwd: string): Promise<{ stdout: string, stderr: string }> {
     console.log(`[opencode-agent] Running: ${cmd} ${args.join(' ')} in cwd: ${cwd}`);
+
+    let extraEnv: Record<string, string> = {};
+    if (cmd === 'gh') {
+        const token = await getGhToken(cwd);
+        if (token) extraEnv['GH_TOKEN'] = token;
+    }
+    const env = Object.keys(extraEnv).length > 0 ? { ...process.env, ...extraEnv } : undefined;
+
     try {
-        // First try execFile with shell: true which resolves .cmd and .exe automatically in PATH
-        return await execFileAsync(cmd, args, { cwd, shell: true });
+        return await execFileAsync(cmd, args, { cwd, shell: true, ...(env && { env }) });
     } catch (e: any) {
         if (e.code === 'ENOENT') {
             console.log(`[opencode-agent] ENOENT with shell: true. Trying fallback exec...`);
-            // Fallback to explicit cmd.exe if the default shell resolution failed
-            return await execAsync(`${cmd} ${args.join(' ')}`, { cwd });
+            const envPrefix = extraEnv['GH_TOKEN'] ? `GH_TOKEN=${extraEnv['GH_TOKEN']} ` : '';
+            return await execAsync(`${envPrefix}${cmd} ${args.join(' ')}`, { cwd });
         }
         throw e;
     }
@@ -77,34 +99,47 @@ export class OpencodeAgent implements Agent {
             console.log(`[opencode-agent] Normalized WSL path to Windows path for CWD: ${originalWorkspacePath}`);
         }
 
-        // 2. Create Worktree
-        const previousPrSession = [...(ticket.agent_sessions || [])].reverse().find(s => s.pr_url);
+        // 2. Set up Worktree
+        // If this ticket already has a PR, we reuse the existing branch and worktree.
+        // Worktree paths are derived from branch name so they are stable across re-runs.
+        const latestTicket = ticketRepository.findById(ticket.id) || ticket;
+        const previousPrSession = [...(latestTicket.agent_sessions || [])].reverse().find(s => s.pr_url);
         const existingPrUrl = previousPrSession?.pr_url;
 
-        let branchName = `ticket-${ticket.id}-${Date.now()}`;
-        const tempWorktreePath = path.join(os.tmpdir(), 'openboard-worktrees', branchName);
+        let branchName: string;
+        let worktreePath: string;
+
+        if (existingPrUrl) {
+            // Ticket was already worked on — reuse the existing branch & worktree
+            console.log(`[opencode-agent] Found existing PR ${existingPrUrl}. Fetching branch name.`);
+            try {
+                const { stdout: prDataStr } = await runCmd('gh', ['pr', 'view', existingPrUrl, '--json', 'headRefName'], originalWorkspacePath);
+                const prData = JSON.parse(prDataStr);
+                if (!prData.headRefName) throw new Error('Could not parse headRefName from PR');
+                branchName = prData.headRefName;
+            } catch (ghErr: any) {
+                console.warn(`[opencode-agent] Could not read PR branch name, will create a new branch.`, ghErr.message);
+                branchName = `ticket-${ticket.id}-${Date.now()}`;
+            }
+            worktreePath = path.join(os.tmpdir(), 'openboard-worktrees', branchName);
+        } else {
+            // Fresh ticket — create a new branch and worktree
+            branchName = `ticket-${ticket.id}-${Date.now()}`;
+            worktreePath = path.join(os.tmpdir(), 'openboard-worktrees', branchName);
+        }
 
         try {
-            if (existingPrUrl) {
-                console.log(`[opencode-agent] Found existing PR ${existingPrUrl}. Attempting to checkout existing branch.`);
-                try {
-                    const { stdout: prDataStr } = await runCmd('gh', ['pr', 'view', existingPrUrl, '--json', 'headRefName'], originalWorkspacePath);
-                    const prData = JSON.parse(prDataStr);
-                    if (prData.headRefName) {
-                        branchName = prData.headRefName;
-                        console.log(`[opencode-agent] Existing branch is ${branchName}. Checking it out into worktree.`);
-                        // Check out the existing branch
-                        await runCmd('git', ['worktree', 'add', tempWorktreePath, branchName], originalWorkspacePath);
-                    } else {
-                        throw new Error("Could not parse headRefName from PR");
-                    }
-                } catch (ghErr) {
-                    console.warn(`[opencode-agent] Failed to fetch existing PR branch, falling back to new branch.`, ghErr);
-                    await runCmd('git', ['worktree', 'add', '-b', branchName, tempWorktreePath], originalWorkspacePath);
-                }
+            if (fs.existsSync(worktreePath)) {
+                // Worktree directory already on disk — just reuse it, no git command needed
+                console.log(`[opencode-agent] Reusing existing worktree at ${worktreePath} (branch: ${branchName})`);
+            } else if (existingPrUrl) {
+                // Branch exists but worktree was cleaned up — check out the branch into the path
+                console.log(`[opencode-agent] Checking out existing branch ${branchName} into new worktree at ${worktreePath}`);
+                await runCmd('git', ['worktree', 'add', worktreePath, branchName], originalWorkspacePath);
             } else {
-                console.log(`[opencode-agent] Creating new git worktree for ticket ${ticket.id} at ${tempWorktreePath} on branch ${branchName}`);
-                await runCmd('git', ['worktree', 'add', '-b', branchName, tempWorktreePath], originalWorkspacePath);
+                // Completely new — create branch and worktree together
+                console.log(`[opencode-agent] Creating new worktree at ${worktreePath} on branch ${branchName}`);
+                await runCmd('git', ['worktree', 'add', '-b', branchName, worktreePath], originalWorkspacePath);
             }
         } catch (e: any) {
             console.error(`[opencode-agent] Failed to create git worktree: ${e.message}`);
@@ -133,7 +168,7 @@ export class OpencodeAgent implements Agent {
                     title: `Session for Ticket: ${ticket.title}`,
                 },
                 query: {
-                    directory: tempWorktreePath
+                    directory: worktreePath
                 }
             });
 
@@ -143,7 +178,7 @@ export class OpencodeAgent implements Agent {
             activeSessions[ticket.id] = sessionID;
 
             // Compute exact OpenCode Tracking URL
-            const encodedPath = Buffer.from(tempWorktreePath).toString('base64url');
+            const encodedPath = Buffer.from(worktreePath).toString('base64url');
             const agentUrl = `http://127.0.0.1:4096/${encodedPath}/session/${sessionID}`;
 
             ticketRepository.updateAgentSession(ticket.id, {
@@ -166,7 +201,7 @@ export class OpencodeAgent implements Agent {
                 agentUrl,
                 config,
                 activeSessions,
-                tempWorktreePath,
+                worktreePath,
                 originalWorkspacePath,
                 branchName
             );
@@ -174,7 +209,7 @@ export class OpencodeAgent implements Agent {
 
             // Send first message asynchronously (doesn't wait for completion)
 
-            let promptText = `# TASK: ${ticket.title}\n\n## Description\n${ticket.description}\n\n## Instructions\n1. The current working directory you should focus on is ${tempWorktreePath}.\n`;
+            let promptText = `# TASK: ${ticket.title}\n\n## Description\n${ticket.description}\n\n## Instructions\n1. The current working directory you should focus on is ${worktreePath}.\n`;
 
             if (existingPrUrl) {
                 promptText += `\n⚠️ **ATTENTION: CHANGES REQUESTED** ⚠️\nYou previously worked on this ticket and opened PR ${existingPrUrl}. However, changes were requested during code review.\n\nPlease use \`gh pr view ${existingPrUrl} --comments\` to read the requested changes, make the necessary code updates to fix the issues, and summarize your fixes.\n`;
@@ -205,7 +240,7 @@ export class OpencodeAgent implements Agent {
                 column_id: ticket.column_id,
                 agent_type: 'opencode',
                 status: 'blocked',
-                url: activeSessions[ticket.id] ? `http://127.0.0.1:4096/${Buffer.from(tempWorktreePath).toString('base64url')}/session/${activeSessions[ticket.id]}` : undefined,
+                url: undefined,
                 error_message: e.message
             });
 

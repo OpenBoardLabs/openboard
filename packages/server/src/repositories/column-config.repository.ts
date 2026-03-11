@@ -25,13 +25,14 @@ export const columnConfigRepository = {
         agentModel?: string | null;
         maxAgents?: number;
         onFinishColumnId?: string | null;
+        onRejectColumnId?: string | null;
     }): ColumnConfig {
         getDb()
             .prepare(
-                `INSERT OR REPLACE INTO column_configs (column_id, agent_type, agent_model, max_agents, on_finish_column_id)
-                 VALUES (?, ?, ?, ?, ?)`
+                `INSERT OR REPLACE INTO column_configs (column_id, agent_type, agent_model, max_agents, on_finish_column_id, on_reject_column_id)
+                 VALUES (?, ?, ?, ?, ?, ?)`
             )
-            .run(data.columnId, data.agentType, data.agentModel ?? null, data.maxAgents ?? 1, data.onFinishColumnId ?? null);
+            .run(data.columnId, data.agentType, data.agentModel ?? null, data.maxAgents ?? 1, data.onFinishColumnId ?? null, data.onRejectColumnId ?? null);
         return this.findByColumnId(data.columnId)!;
     },
 

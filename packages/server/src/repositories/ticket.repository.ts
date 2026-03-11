@@ -157,20 +157,48 @@ export const ticketRepository = {
         const ticket = this.findById(id);
         if (!ticket) return undefined;
 
-        // Find existing session for this column or create a new one
         const sessions = [...ticket.agent_sessions];
-        const existingIdx = sessions.findIndex(s => s.column_id === sessionData.column_id);
 
-        const newSession = {
-            ...sessionData,
-            started_at: existingIdx >= 0 ? sessions[existingIdx].started_at : new Date().toISOString(),
-            finished_at: (sessionData.status === 'done' || sessionData.status === 'blocked') ? new Date().toISOString() : undefined
-        };
+        // Find the index of the most recent session for this column
+        let existingIdx = -1;
+        for (let i = sessions.length - 1; i >= 0; i--) {
+            if (sessions[i].column_id === sessionData.column_id) {
+                existingIdx = i;
+                break;
+            }
+        }
 
-        if (existingIdx >= 0) {
-            sessions[existingIdx] = newSession;
+        const isTerminalStatus = (s: string) => s === 'done' || s === 'blocked';
+        let isNewSession = false;
+
+        if (existingIdx === -1) {
+            // No session ever Existed for this column
+            isNewSession = true;
         } else {
+            const existingSession = sessions[existingIdx];
+            // If the existing session is already in a terminal state (done or blocked)
+            // AND we are trying to start a new 'processing' session, then we append.
+            if (isTerminalStatus(existingSession.status) && sessionData.status === 'processing') {
+                isNewSession = true;
+            }
+        }
+
+        if (isNewSession) {
+            const newSession = {
+                ...sessionData,
+                started_at: new Date().toISOString(),
+                // If it starts terminal (which would be weird but possible), set finished_at
+                finished_at: isTerminalStatus(sessionData.status) ? new Date().toISOString() : undefined
+            };
             sessions.push(newSession);
+        } else {
+            // Update the existing (active) session
+            const newSession = {
+                ...sessions[existingIdx], // Preserve started_at and any missing fields
+                ...sessionData,
+                finished_at: isTerminalStatus(sessionData.status) ? new Date().toISOString() : undefined
+            };
+            sessions[existingIdx] = newSession;
         }
 
         const updated = { ...ticket, agent_sessions: sessions, updated_at: new Date().toISOString() };

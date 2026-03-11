@@ -30,7 +30,8 @@ export function TicketCard({ ticket, isOverlay }: TicketCardProps) {
         cursor: 'grab',
     };
 
-    const hasNeedsApproval = ticket.agent_sessions?.some(s => s.column_id === ticket.column_id && s.status === 'needs_approval');
+    const activeColumnSession = [...(ticket.agent_sessions ?? [])].reverse().find(s => s.column_id === ticket.column_id);
+    const hasNeedsApproval = activeColumnSession?.status === 'needs_approval';
 
     return (
         <div
@@ -48,12 +49,24 @@ export function TicketCard({ ticket, isOverlay }: TicketCardProps) {
             <div className={styles.footer}>
                 <div className={styles.left}>
                     <PriorityBadge priority={ticket.priority} />
-                    {ticket.agent_sessions?.map(session => {
-                        if (session.column_id !== ticket.column_id) return null;
+                    {(() => {
+                        if (!ticket.agent_sessions || ticket.agent_sessions.length === 0) return null;
+
+                        // Find the most recent session for this specific column
+                        let activeSession = null;
+                        for (let i = ticket.agent_sessions.length - 1; i >= 0; i--) {
+                            if (ticket.agent_sessions[i].column_id === ticket.column_id) {
+                                activeSession = ticket.agent_sessions[i];
+                                break;
+                            }
+                        }
+
+                        if (!activeSession) return null;
+                        const session = activeSession;
                         if (!session.url && session.status !== 'processing' && session.status !== 'done' && session.status !== 'blocked' && session.status !== 'needs_approval') return null;
 
                         return (
-                            <React.Fragment key={session.column_id}>
+                            <React.Fragment key={session.column_id + '-' + session.started_at}>
                                 <a
                                     href={session.url || `http://127.0.0.1:${session.port || 4096}`}
                                     target="_blank"
@@ -96,7 +109,7 @@ export function TicketCard({ ticket, isOverlay }: TicketCardProps) {
                                 )}
                             </React.Fragment>
                         );
-                    })}
+                    })()}
                 </div>
 
             </div>

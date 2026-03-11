@@ -81,41 +81,61 @@ export function TicketModal({ ticket, columnId, onClose }: TicketModalProps) {
                         <PriorityBadge priority={priority} size="md" />
 
                         {/* Current Column Status Badge */}
-                        {ticket?.agent_sessions?.map((session, idx) => {
-                            if (session.column_id !== ticket.column_id) return null;
+                        {(() => {
+                            if (!ticket?.agent_sessions || ticket.agent_sessions.length === 0) return null;
+                            let activeSession = null;
+                            for (let i = ticket.agent_sessions.length - 1; i >= 0; i--) {
+                                if (ticket.agent_sessions[i].column_id === ticket.column_id) {
+                                    activeSession = ticket.agent_sessions[i];
+                                    break;
+                                }
+                            }
+                            if (!activeSession) return null;
+
+                            const session = activeSession;
                             if (session.status === 'processing') return (
-                                <div key={idx} className={`${styles.statusBadge} ${styles.processing}`}>
+                                <div key={session.started_at} className={`${styles.statusBadge} ${styles.processing}`}>
                                     <Bot size={12} className={styles.pulse} />
                                     {t('agent.status.processing' as any)}
                                 </div>
                             );
                             if (session.status === 'done') return (
-                                <div key={idx} className={`${styles.statusBadge} ${styles.done}`}>
+                                <div key={session.started_at} className={`${styles.statusBadge} ${styles.done}`}>
                                     <CheckCircle size={12} />
                                     {t('agent.status.done' as any)}
                                 </div>
                             );
                             if (session.status === 'blocked') return (
-                                <div key={idx} className={`${styles.statusBadge} ${styles.blocked}`} title="Agent execution failed or blocked">
+                                <div key={session.started_at} className={`${styles.statusBadge} ${styles.blocked}`} title="Agent execution failed or blocked">
                                     <span style={{ color: 'white' }}>⚠️</span>
                                     Error
                                 </div>
                             );
                             if (session.status === 'needs_approval') return (
-                                <div key={idx} className={`${styles.statusBadge} ${styles.needsApproval}`} title="Agent requires user permission">
+                                <div key={session.started_at} className={`${styles.statusBadge} ${styles.needsApproval}`} title="Agent requires user permission">
                                     <span style={{ color: '#f59e0b' }}>✋</span>
                                     Needs Approval
                                 </div>
                             );
                             return null;
-                        })}
+                        })()}
                     </div>
                     <div className={styles.headerRight}>
                         {/* Action buttons mapped from session history */}
-                        {ticket?.agent_sessions?.map((session, idx) => {
-                            if (session.column_id !== ticket.column_id) return null;
+                        {(() => {
+                            if (!ticket?.agent_sessions || ticket.agent_sessions.length === 0) return null;
+                            let activeSession = null;
+                            for (let i = ticket.agent_sessions.length - 1; i >= 0; i--) {
+                                if (ticket.agent_sessions[i].column_id === ticket.column_id) {
+                                    activeSession = ticket.agent_sessions[i];
+                                    break;
+                                }
+                            }
+                            if (!activeSession) return null;
+                            const session = activeSession;
+
                             return (
-                                <React.Fragment key={idx}>
+                                <React.Fragment key={session.started_at}>
                                     {session.status === 'blocked' && (
                                         <button
                                             className={styles.sessionBtn}
@@ -140,7 +160,7 @@ export function TicketModal({ ticket, columnId, onClose }: TicketModalProps) {
                                     )}
                                 </React.Fragment>
                             );
-                        })}
+                        })()}
                         <button className={styles.closeBtn} onClick={onClose}><X size={16} /></button>
                     </div>
                 </div>

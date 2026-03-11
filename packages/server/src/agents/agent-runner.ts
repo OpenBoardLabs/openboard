@@ -1,19 +1,7 @@
-import type { Agent } from './agent.interface.js';
-import type { Ticket, AgentType } from '../types.js';
+import type { Ticket } from '../types.js';
 import { columnConfigRepository } from '../repositories/column-config.repository.js';
-import { ticketRepository } from '../repositories/ticket.repository.js';
-import { DummyAgent } from './dummy.agent.js';
-import { OpencodeAgent } from './opencode.agent.js';
-import { CodeReviewAgent } from './codereview.agent.js';
-
-/** Maps every known AgentType to its constructor. Add new agent types here. */
-const agentRegistry: Partial<Record<AgentType, new () => Agent>> = {
-    dummy: DummyAgent,
-    opencode: OpencodeAgent,
-    code_review: CodeReviewAgent,
-};
-
 import { agentQueue } from './agent-queue.js';
+
 
 /**
  * Checks whether the column the ticket just arrived in has an agent configured,

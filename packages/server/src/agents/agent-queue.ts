@@ -1,17 +1,18 @@
 import { ticketRepository } from '../repositories/ticket.repository.js';
 import { columnConfigRepository } from '../repositories/column-config.repository.js';
-import { sseManager } from '../sse.js';
-import { DummyAgent } from './dummy.agent.js';
-import { OpencodeAgent } from './opencode.agent.js';
-import { CodeReviewAgent } from './codereview.agent.js';
 import type { Agent } from './agent.interface.js';
 import type { AgentType, Ticket, Priority } from '../types.js';
 
-const agentRegistry: Partial<Record<AgentType, new () => Agent>> = {
-    dummy: DummyAgent,
-    opencode: OpencodeAgent,
-    code_review: CodeReviewAgent,
-};
+// Agents are lazy-loaded inside dispatchAgent() to avoid circular ESM imports
+// (agent files import opencode.events.ts which imports agentQueue from here)
+async function resolveAgentClass(agentType: AgentType): Promise<(new () => Agent) | undefined> {
+    switch (agentType) {
+        case 'dummy': return (await import('./dummy.agent.js')).DummyAgent;
+        case 'opencode': return (await import('./opencode.agent.js')).OpencodeAgent;
+        case 'code_review': return (await import('./codereview.agent.js')).CodeReviewAgent;
+        default: return undefined;
+    }
+}
 
 const PRIORITY_WEIGHTS: Record<Priority, number> = {
     urgent: 4,
@@ -27,6 +28,9 @@ class AgentQueueManager {
     // Map to prevent concurrent evaluation of the same column
     private evaluatingColumns: Set<string> = new Set();
 
+    // Tickets explicitly forced to re-run even if their last session is 'done'
+    private forcedTickets: Set<string> = new Set();
+
     /**
      * Enqueue a ticket for processing. 
      * In the new design, we just evaluate the column it belongs to.
@@ -35,13 +39,8 @@ class AgentQueueManager {
         const ticket = ticketRepository.findById(ticketId);
         if (ticket) {
             if (force) {
-                // Remove the blocked or done session if it exists for this column so it can be picked up freshly
-                const updatedSessions = ticket.agent_sessions.filter(s => !(s.column_id === ticket.column_id && (s.status === 'blocked' || s.status === 'done')));
-                // Directly overwrite the JSON via raw DB call to avoid deep partial matching issues
-                const dbModule = await import('../db/database.js');
-                dbModule.getDb().prepare('UPDATE tickets SET agent_sessions = ? WHERE id = ?').run(JSON.stringify(updatedSessions), ticketId);
-                // Also update the local ticket reference so evaluateColumnQueue sees it immediately
-                ticket.agent_sessions = updatedSessions;
+                // Mark this ticket as forced so evaluateColumnQueue bypasses the 'done' skip
+                this.forcedTickets.add(ticketId);
             }
             this.evaluateColumnQueue(ticket.column_id);
         }
@@ -83,22 +82,46 @@ class AgentQueueManager {
             const eligibleTickets: Ticket[] = [];
 
             for (const ticket of tickets) {
-                // Find the session for THIS specific column
-                const session = ticket.agent_sessions.find(s => s.column_id === columnId);
+                // Skip if already running in memory
+                if (this.runningTickets.has(ticket.id)) {
+                    activeCount++;
+                    continue;
+                }
 
-                if (session) {
-                    if (session.status === 'processing' || session.status === 'needs_approval' || this.runningTickets.has(ticket.id)) {
-                        activeCount++;
-                    } else if (session.status === 'done') {
-                        // Already completed this step, skip it completely.
-                        continue;
-                    } else if (session.status === 'blocked') {
-                        // Blocked tickets stay blocked until manually retried. Skip for auto-queue.
-                        continue;
-                    }
-                } else {
-                    // No session yet means it hasn't started in this column!
+                // Look at the LAST session in the ENTIRE history array.
+                // - If no sessions: ticket is fresh → eligible
+                // - If last session is for a DIFFERENT column: ticket just arrived here → eligible
+                // - If last session is for THIS column:
+                //     processing/needs_approval → already running
+                //     done → finished here naturally, skip
+                //     blocked → skip unless forced (retry path)
+                const lastSession = ticket.agent_sessions.length > 0
+                    ? ticket.agent_sessions[ticket.agent_sessions.length - 1]
+                    : null;
+
+                if (!lastSession) {
+                    // Fresh ticket, no history
                     eligibleTickets.push(ticket);
+                } else if (lastSession.column_id !== columnId) {
+                    // Ticket just arrived from another column (on_finish or on_reject move)
+                    eligibleTickets.push(ticket);
+                } else {
+                    // Last session is for this column
+                    if (lastSession.status === 'processing' || lastSession.status === 'needs_approval') {
+                        activeCount++;
+                    } else if (lastSession.status === 'done') {
+                        // Finished here naturally; don't re-run unless forced
+                        if (this.forcedTickets.has(ticket.id)) {
+                            eligibleTickets.push(ticket);
+                        }
+                        // else skip
+                    } else if (lastSession.status === 'blocked') {
+                        // Blocked; skip unless the user explicitly retried (force)
+                        if (this.forcedTickets.has(ticket.id)) {
+                            eligibleTickets.push(ticket);
+                        }
+                        // else skip
+                    }
                 }
             }
 
@@ -122,6 +145,7 @@ class AgentQueueManager {
             const toDispatch = eligibleTickets.slice(0, slotsAvailable);
 
             for (const ticket of toDispatch) {
+                this.forcedTickets.delete(ticket.id); // Clear forced flag before dispatching
                 this.runningTickets.add(ticket.id);
 
                 this.dispatchAgent(ticket, config as any).catch(err => {
@@ -141,14 +165,8 @@ class AgentQueueManager {
     private async dispatchAgent(ticket: Ticket, config: { agent_type: AgentType; agent_model?: string | null; on_finish_column_id?: string | null }) {
         console.log(`[agent-queue] Dispatching agent ${config.agent_type} for ticket ${ticket.id} in column ${ticket.column_id} (Priority: ${ticket.priority})`);
 
-        // Set processing status before starting via updateAgentSession
-        ticketRepository.updateAgentSession(ticket.id, {
-            column_id: ticket.column_id,
-            agent_type: config.agent_type,
-            status: 'processing'
-        });
-
-        const AgentClass = agentRegistry[config.agent_type];
+        // Agents own setting their own 'processing' status at the start of run()
+        const AgentClass = await resolveAgentClass(config.agent_type);
         if (!AgentClass) {
             console.warn(`[agent-queue] Unknown agent type: ${config.agent_type}`);
             return;
