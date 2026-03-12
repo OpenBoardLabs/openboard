@@ -1,5 +1,5 @@
 {
-  "name": "@m0xoo/openboard",
+  "name": "@openboard/start",
   "version": "1.0.20",
   "type": "module",
   "bin": {

@@ -32,7 +32,7 @@ Your folder should already have `git init` and a GitHub repo configured.
 
 ```
 cd /path/to/project
-npx @m0xoo/openboard
+npx @openboard/start
 ```
 
 ## Tech Stack
