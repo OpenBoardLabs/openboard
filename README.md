@@ -31,9 +31,8 @@ Make sure you have opencode, git and gh cli installed.
 Your folder should already have git init and a github repo configured.
 
 ```
-npm i -g @m0xoo/openboard
 cd /path/to/project
-openboard
+npx @m0xoo/openboard
 ```
 
 ## Tech Stack
