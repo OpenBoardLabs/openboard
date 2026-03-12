@@ -277,3 +277,39 @@
     opacity: 0.4;
     cursor: not-allowed;
 }
+
+.pathPickerTrigger {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+    padding: var(--space-3) var(--space-4);
+    background: var(--color-surface-2);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    cursor: pointer;
+    transition: border-color var(--transition-fast), background var(--transition-fast);
+}
+
+.pathPickerTrigger:hover {
+    border-color: var(--color-border-hover);
+    background: var(--color-surface-3);
+}
+
+.pathValue {
+    font-size: var(--text-sm);
+    color: var(--color-text-primary);
+    font-family: var(--font-mono);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.pathPlaceholder {
+    font-size: var(--text-sm);
+    color: var(--color-text-muted);
+}
+
+.folderIcon {
+    color: var(--color-text-muted);
+    flex-shrink: 0;
+}

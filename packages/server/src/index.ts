@@ -5,6 +5,7 @@ import { boardsRouter } from './routes/boards.router.js';
 import { columnsRouter } from './routes/columns.router.js';
 import { ticketsRouter } from './routes/tickets.router.js';
 import { columnConfigRouter } from './routes/column-config.router.js';
+import { systemRouter } from './routes/system.router.js';
 import { sseManager } from './sse.js';
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -59,6 +60,7 @@ async function start() {
     app.use('/api/boards/:boardId/columns', columnsRouter);
     app.use('/api/boards/:boardId/tickets', ticketsRouter);
     app.use('/api/boards/:boardId/columns', columnConfigRouter);
+    app.use('/api/system', systemRouter);
     app.get('/api/health', (_req, res) => res.json({ status: 'ok' }));
 
     // Serve the built client
