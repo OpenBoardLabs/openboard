@@ -140,7 +140,7 @@ export class OpencodeAgent implements Agent {
             });
             commentRepository.create({
                 ticketId: ticket.id,
-                author: 'System',
+                author: 'opencode', // Use 'opencode' for consistency
                 content: `❌ **Failed to Initialize Worktree**\n\nThe agent could not prepare its isolated worktree.\nError: ${e.message}`
             });
             return;
@@ -244,7 +244,7 @@ export class OpencodeAgent implements Agent {
             // Add a comment to explicitly tell the user what went wrong
             commentRepository.create({
                 ticketId: ticket.id,
-                author: 'System',
+                author: 'opencode',
                 content: `❌ **Agent Execution Failed**\n\nThe OpenCode agent failed to process this ticket.\nError: ${e.message}`
             });
         }

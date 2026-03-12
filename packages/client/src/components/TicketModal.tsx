@@ -239,48 +239,57 @@ export function TicketModal({ ticket, columnId, onClose }: TicketModalProps) {
                     {/* Agent History */}
                     {ticket && ticket.agent_sessions && ticket.agent_sessions.length > 0 && (
                         <div className={styles.section}>
-                            <span className={styles.sectionLabel} style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                Agent History
-                            </span>
+                            <div className={styles.historyHeader}>
+                                <span className={styles.sectionLabel}>
+                                    Agent History
+                                </span>
+                                <span className={styles.historyTotalCost}>
+                                    Total: ${ticket.agent_sessions.reduce((sum, s) => sum + (s.total_cost || 0), 0).toFixed(2)}
+                                </span>
+                            </div>
                             <div className={styles.agentHistoryList}>
                                 {ticket.agent_sessions.map((session, idx) => {
                                     const colName = state.columns.find(c => c.id === session.column_id)?.name || 'Unknown Step';
                                     return (
                                         <div key={idx} className={styles.historyItem}>
-                                            <div className={styles.historyMeta}>
-                                                <span className={styles.historyCol}>{colName}</span>
-                                                <span className={`${styles.historyStatus} ${styles[session.status] || ''}`}>
-                                                    <span style={{ marginRight: '4px', display: 'inline-flex', verticalAlign: 'middle' }}>
-                                                        {getAgentConfig(session.agent_type).icon}
+                                            <div className={styles.historyMain}>
+                                                <div className={styles.historyDetails}>
+                                                    <span className={styles.historyCol}>{colName}</span>
+                                                    <div className={styles.historyLinks}>
+                                                        {(session.url || session.port) && (
+                                                            <a
+                                                                href={session.url || `http://127.0.0.1:${session.port}`}
+                                                                target="_blank"
+                                                                rel="noopener noreferrer"
+                                                                className={styles.historyLink}
+                                                            >
+                                                                Session Link <ExternalLink size={12} />
+                                                            </a>
+                                                        )}
+                                                        {session.pr_url && (
+                                                            <a
+                                                                href={session.pr_url}
+                                                                target="_blank"
+                                                                rel="noopener noreferrer"
+                                                                className={styles.historyLink}
+                                                                style={{ color: '#2da44e' }}
+                                                            >
+                                                                Code Review <GitPullRequest size={12} />
+                                                            </a>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                                <div className={styles.historyStatusAndCost}>
+                                                    <span className={`${styles.historyStatus} ${styles[session.status] || ''}`}>
+                                                        <span style={{ marginRight: '4px', display: 'inline-flex', verticalAlign: 'middle' }}>
+                                                            {getAgentConfig(session.agent_type).icon}
+                                                        </span>
+                                                        {session.status === 'needs_approval' ? 'Needs Approval' : session.status}
                                                     </span>
-                                                    {session.status === 'needs_approval' ? 'Needs Approval' : session.status}
-                                                </span>
-                                                {session.total_cost !== undefined && session.total_cost > 0 && (
-                                                    <span className={styles.historyCost}>${session.total_cost.toFixed(2)}</span>
-                                                )}
-                                            </div>
-                                            <div className={styles.historyLinks}>
-                                                {(session.url || session.port) && (
-                                                    <a
-                                                        href={session.url || `http://127.0.0.1:${session.port}`}
-                                                        target="_blank"
-                                                        rel="noopener noreferrer"
-                                                        className={styles.historyLink}
-                                                    >
-                                                        Session Link <ExternalLink size={12} />
-                                                    </a>
-                                                )}
-                                                {session.pr_url && (
-                                                    <a
-                                                        href={session.pr_url}
-                                                        target="_blank"
-                                                        rel="noopener noreferrer"
-                                                        className={styles.historyLink}
-                                                        style={{ color: '#2da44e' }}
-                                                    >
-                                                        Code Review <GitPullRequest size={12} />
-                                                    </a>
-                                                )}
+                                                    {session.total_cost !== undefined && session.total_cost > 0 && (
+                                                        <span className={styles.historyCost}>${session.total_cost.toFixed(2)}</span>
+                                                    )}
+                                                </div>
                                             </div>
                                             {session.error_message && (
                                                 <div className={styles.historyError}>

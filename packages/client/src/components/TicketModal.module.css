@@ -505,6 +505,27 @@
     margin-top: var(--space-3);
 }
 
+.historyHeader {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: var(--space-2);
+}
+
+.historyHeader .sectionLabel {
+    margin-bottom: 0;
+}
+
+.historyTotalCost {
+    font-size: var(--text-xs);
+    font-weight: 600;
+    color: var(--color-text-secondary);
+    background: var(--color-surface-3);
+    padding: 2px 8px;
+    border-radius: var(--radius-full);
+    border: 1px solid var(--color-border);
+}
+
 .historyItem {
     background: var(--color-surface-2);
     border: 1px solid var(--color-border);
@@ -515,10 +536,23 @@
     gap: var(--space-2);
 }
 
-.historyMeta {
+.historyMain {
     display: flex;
-    align-items: center;
+    align-items: flex-start;
     justify-content: space-between;
+}
+
+.historyDetails {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.historyStatusAndCost {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 4px;
 }
 
 .historyCol {
