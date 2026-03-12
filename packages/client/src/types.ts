@@ -13,6 +13,7 @@ export interface BoardWorkspace {
 export interface Board {
     id: string;
     name: string;
+    path?: string;
     workspaces: BoardWorkspace[];
     created_at: string;
 }

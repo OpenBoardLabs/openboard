@@ -75,6 +75,29 @@ async function main() {
     // Import the compiled server index file
     try {
         await import(path.join(__dirname, '../packages/server/dist/index.js'));
+        
+        // Give the server a moment to start
+        setTimeout(async () => {
+            const currentPath = process.cwd();
+            // We use fetch since the server is running in this process or another
+            try {
+                const res = await fetch(`http://localhost:${process.env.PORT}/api/boards`);
+                if (res.ok) {
+                    const boards = await res.json();
+                    // Find board with this path. Normalize windows paths for comparison.
+                    const normalize = (p) => p.replace(/\\/g, '/').toLowerCase();
+                    const board = boards.find(b => b.path && normalize(b.path) === normalize(currentPath));
+                    
+                    const open = (await import('open')).default;
+                    const url = board ? `http://localhost:${process.env.PORT}/boards/${board.id}` : `http://localhost:${process.env.PORT}/`;
+                    console.log(`[openboard] Opening browser to ${url}`);
+                    await open(url);
+                }
+            } catch (e) {
+                console.error('[openboard] Could not detect board or open browser:', e);
+            }
+        }, 1000);
+
     } catch (e) {
         console.error('[openboard] Error starting server. Did you run `npm run build`? Full Error:', e);
         if (opencodeProcess) opencodeProcess.kill();

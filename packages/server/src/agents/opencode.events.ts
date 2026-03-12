@@ -2,58 +2,13 @@ import { ticketRepository } from '../repositories/ticket.repository.js';
 import { commentRepository } from '../repositories/comment.repository.js';
 import { agentQueue } from './agent-queue.js';
 import type { Ticket, ColumnConfig } from '../types.js';
-import { execFile, exec } from 'child_process';
-import { promisify } from 'util';
+import { runCmd, normalizePathForOS, getGhToken } from '../utils/os.js';
+import { createBoardScopedClient } from '../utils/opencode.js';
 import fs from 'fs';
-
-const execAsync = promisify(exec);
-const execFileAsync = promisify(execFile);
-
-// Cache the gh token so we only fetch it once per server process
-let cachedGhToken: string | null = null;
-async function getGhToken(cwd: string): Promise<string | null> {
-    if (cachedGhToken !== null) return cachedGhToken;
-    try {
-        const { stdout } = await execFileAsync('gh', ['auth', 'token'], { cwd, shell: true });
-        cachedGhToken = stdout.trim() || null;
-    } catch {
-        cachedGhToken = null;
-    }
-    return cachedGhToken;
-}
-
-// Helper function to execute commands robustly on Windows.
-// Automatically injects GH_TOKEN for any `gh` subcommand.
-async function runCmd(cmd: string, args: string[], cwd: string): Promise<{ stdout: string, stderr: string }> {
-    console.log(`[opencode-events] Running: ${cmd} ${args.join(' ')} in cwd: ${cwd}`);
-
-    // Safety check for CWD to avoid obscure ENOENT shell errors
-    if (!fs.existsSync(cwd)) {
-        throw new Error(`Directory does not exist: ${cwd}`);
-    }
-
-    let extraEnv: Record<string, string> = {};
-    if (cmd === 'gh') {
-        const token = await getGhToken(cwd);
-        if (token) extraEnv['GH_TOKEN'] = token;
-    }
-    const env = Object.keys(extraEnv).length > 0 ? { ...process.env, ...extraEnv } : undefined;
-
-    try {
-        return await execFileAsync(cmd, args, { cwd, shell: true, ...(env && { env }) });
-    } catch (e: any) {
-        if (e.code === 'ENOENT') {
-            console.log(`[opencode-events] ENOENT with shell: true. Trying fallback exec...`);
-            const envPrefix = extraEnv['GH_TOKEN'] ? `GH_TOKEN=${extraEnv['GH_TOKEN']} ` : '';
-            return await execAsync(`${envPrefix}${cmd} ${args.join(' ')}`, { cwd });
-        }
-        throw e;
-    }
-}
 
 export async function setupOpencodeEventListener(
     events: any,
-    opencodeClient: any,
+    _unused: any, // kept for signature compatibility if called elsewhere
     sessionID: string,
     ticket: Ticket,
     agentUrl: string,
@@ -64,6 +19,7 @@ export async function setupOpencodeEventListener(
     branchName: string,
     agentType: 'opencode' | 'code_review' = 'opencode'
 ) {
+    const opencodeClient = createBoardScopedClient(originalWorkspacePath);
     const processedMessages = new Set<string>();
     const activeParts = new Map<string, { commentId: string, fullText: string }>();
     let rawSessionCost = 0;
@@ -229,7 +185,7 @@ export async function setupOpencodeEventListener(
                             const prUrlSession = [...(latestTicket.agent_sessions || [])].reverse().find(s => s.pr_url);
                             const prUrl = prUrlSession?.pr_url;
                             if (prUrl) {
-                                const { stdout: prStatus } = await runCmd('gh', ['pr', 'view', prUrl, '--json', 'comments'], worktreePath);
+                                const { stdout: prStatus } = await runCmd('gh', ['pr', 'view', prUrl, '--json', 'comments'], worktreePath, 'opencode-events');
                                 const comments = JSON.parse(prStatus).comments;
 
                                 // Find the latest comment that contains a decision
@@ -306,12 +262,12 @@ export async function setupOpencodeEventListener(
                         // Commit, push, and create PR before moving ticket
                         try {
                             console.log(`[opencode-agent] Checking for changes in worktree ${worktreePath}`);
-                            const { stdout: statusOut } = await runCmd('git', ['status', '--porcelain'], worktreePath);
+                            const { stdout: statusOut } = await runCmd('git', ['status', '--porcelain'], worktreePath, 'opencode-events');
 
                             if (statusOut.trim()) {
                                 console.log(`[opencode-agent] Changes found for ticket ${ticket.id}. Committing and pushing.`);
-                                await runCmd('git', ['add', '.'], worktreePath);
-                                await runCmd('git', ['commit', '-m', `"${ticket.title.replace(/"/g, '\\"')}"`], worktreePath);
+                                await runCmd('git', ['add', '.'], worktreePath, 'opencode-events');
+                                await runCmd('git', ['commit', '-m', `"${ticket.title.replace(/"/g, '\\"')}"`], worktreePath, 'opencode-events');
 
                                 // Inject GH_TOKEN into remote URL for git push authentication
                                 const token = await getGhToken(worktreePath);
@@ -321,14 +277,14 @@ export async function setupOpencodeEventListener(
                                         const remoteUrl = remoteUrlOut.trim();
                                         if (remoteUrl.startsWith('https://github.com/')) {
                                             const authedUrl = remoteUrl.replace('https://github.com/', `https://x-access-token:${token}@github.com/`);
-                                            await runCmd('git', ['remote', 'set-url', 'origin', authedUrl], worktreePath);
+                                            await runCmd('git', ['remote', 'set-url', 'origin', authedUrl], worktreePath, 'opencode-events');
                                         }
                                     } catch (urlErr) {
                                         console.warn(`[opencode-agent] Could not set authenticated remote URL:`, urlErr);
                                     }
                                 }
 
-                                await runCmd('git', ['push', '-u', 'origin', branchName], worktreePath);
+                                await runCmd('git', ['push', '-u', 'origin', branchName], worktreePath, 'opencode-events');
 
                                 // Check if a PR already exists for this ticket (fetch fresh from DB)
                                 const freshTicket = ticketRepository.findById(ticket.id) || ticket;
@@ -338,7 +294,7 @@ export async function setupOpencodeEventListener(
                                 if (prUrl) {
                                     updateSessionComment(`🚀 **Pull Request Updated**\n\nThe agent has updated the existing PR:\n${prUrl}${rawSessionCost > 0 ? `\n\n**Total Cost:** $${rawSessionCost.toFixed(4)}` : ''}`, 'pr');
                                 } else {
-                                    const { stdout: prOut } = await runCmd('gh', ['pr', 'create', '--title', `"${ticket.title.replace(/"/g, '\\"')}"`, '--body', `"Automated PR from OpenCode Agent for ticket #${ticket.id}"`], worktreePath);
+                                    const { stdout: prOut } = await runCmd('gh', ['pr', 'create', '--title', `"${ticket.title.replace(/"/g, '\\"')}"`, '--body', `"Automated PR from OpenCode Agent for ticket #${ticket.id}"`], worktreePath, 'opencode-events');
                                     prUrl = prOut.trim();
                                     updateSessionComment(`🚀 **Pull Request Created**\n\nThe agent has proposed the following changes in a PR. Check it out:\n${prUrl}${rawSessionCost > 0 ? `\n\n**Total Cost:** $${rawSessionCost.toFixed(4)}` : ''}`, 'pr');
                                 }

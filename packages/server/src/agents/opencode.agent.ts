@@ -5,55 +5,12 @@ import { ticketRepository } from '../repositories/ticket.repository.js';
 import { boardRepository } from '../repositories/board.repository.js';
 import { commentRepository } from '../repositories/comment.repository.js';
 import { setupOpencodeEventListener } from './opencode.events.js';
-import { execFile, exec } from 'child_process';
-import { promisify } from 'util';
-import os from 'os';
+import { createBoardScopedClient } from '../utils/opencode.js';
+import { runCmd, normalizePathForOS } from '../utils/os.js';
 import path from 'path';
 import fs from 'fs';
 
-const execAsync = promisify(exec);
-const execFileAsync = promisify(execFile);
-
-// Cache the gh token so we only fetch it once per server process
-let cachedGhToken: string | null = null;
-async function getGhToken(cwd: string): Promise<string | null> {
-    if (cachedGhToken !== null) return cachedGhToken;
-    try {
-        const { stdout } = await execFileAsync('gh', ['auth', 'token'], { cwd });
-        cachedGhToken = stdout.trim() || null;
-    } catch {
-        cachedGhToken = null;
-    }
-    return cachedGhToken;
-}
-
-// Helper function to execute commands robustly on Windows.
-// Automatically injects GH_TOKEN for any `gh` subcommand.
-async function runCmd(cmd: string, args: string[], cwd: string): Promise<{ stdout: string, stderr: string }> {
-    console.log(`[opencode-agent] Running: ${cmd} ${args.join(' ')} in cwd: ${cwd}`);
-
-    let extraEnv: Record<string, string> = {};
-    if (cmd === 'gh') {
-        const token = await getGhToken(cwd);
-        if (token) extraEnv['GH_TOKEN'] = token;
-    }
-    const env = Object.keys(extraEnv).length > 0 ? { ...process.env, ...extraEnv } : undefined;
-
-    try {
-        return await execFileAsync(cmd, args, { cwd, ...(env && { env }) });
-    } catch (e: any) {
-        if (e.code === 'ENOENT') {
-            console.log(`[opencode-agent] ENOENT finding binary. Trying fallback exec...`);
-            const envPrefix = extraEnv['GH_TOKEN'] ? (process.platform === 'win32' ? `set GH_TOKEN=${extraEnv['GH_TOKEN']}&& ` : `GH_TOKEN=${extraEnv['GH_TOKEN']} `) : '';
-            return await execAsync(`${envPrefix}${cmd} ${args.join(' ')}`, { cwd });
-        }
-        throw e;
-    }
-}
-
-// Central OpenCode client connecting to the user's running OpenCode server
 const opencodePort = process.env.OPENCODE_PORT || 4096;
-const opencodeClient = createOpencodeClient({ baseUrl: `http://127.0.0.1:${opencodePort}` });
 
 // Track active session IDs by ticket ID to prevent/cancel overlaps
 const activeSessions: Record<string, string> = {};
@@ -70,20 +27,14 @@ export class OpencodeAgent implements Agent {
             port: Number(opencodePort)
         });
 
-        // Prevent duplicate runs blocking new requests: replace the old session.
-        if (activeSessions[ticket.id]) {
-            console.log(`[opencode-agent] Session already running for ticket ${ticket.id}. Aborting old session to start a fresh one.`);
-            try {
-                // Ignore typescript error if abort typing differs slightly in SDK version
-                await (opencodeClient.session as any).abort({ path: { id: activeSessions[ticket.id] } });
-            } catch (e) {
-                console.error(`[opencode-agent] Error aborting previous session:`, e);
-            }
-            delete activeSessions[ticket.id];
-        }
+        // Create a board-scoped Opencode client for this ticket
+        const board = boardRepository.findById(ticket.board_id);
+        const opencodeClient = createBoardScopedClient(board?.path);
 
-        // 1. Find Worktree (Use the directory where openboard was started)
-        let originalWorkspacePath = process.cwd();
+        // Prevent duplicate runs blocking new requests: replace the old session.
+
+        // 1. Find Worktree (Use the board's designated path)
+        let originalWorkspacePath = normalizePathForOS(board?.path || process.cwd());
 
         // 2. Set up Worktree
         // If this ticket already has a PR, we reuse the existing branch and worktree.
@@ -99,7 +50,7 @@ export class OpencodeAgent implements Agent {
             // Ticket was already worked on — reuse the existing branch & worktree
             console.log(`[opencode-agent] Found existing PR ${existingPrUrl}. Fetching branch name.`);
             try {
-                const { stdout: prDataStr } = await runCmd('gh', ['pr', 'view', existingPrUrl, '--json', 'headRefName'], originalWorkspacePath);
+                const { stdout: prDataStr } = await runCmd('gh', ['pr', 'view', existingPrUrl, '--json', 'headRefName'], originalWorkspacePath, 'opencode-agent');
                 const prData = JSON.parse(prDataStr);
                 if (!prData.headRefName) throw new Error('Could not parse headRefName from PR');
                 branchName = prData.headRefName;
@@ -107,12 +58,13 @@ export class OpencodeAgent implements Agent {
                 console.warn(`[opencode-agent] Could not read PR branch name, will create a new branch.`, ghErr.message);
                 branchName = `ticket-${ticket.id}-${Date.now()}`;
             }
-            worktreePath = path.join(os.tmpdir(), 'openboard-worktrees', branchName);
         } else {
             // Fresh ticket — create a new branch and worktree
             branchName = `ticket-${ticket.id}-${Date.now()}`;
-            worktreePath = path.join(os.tmpdir(), 'openboard-worktrees', branchName);
         }
+
+        // Use a local folder within the board path for worktrees
+        worktreePath = normalizePathForOS(path.join(originalWorkspacePath, '.openboard-worktrees', branchName));
 
         try {
             if (fs.existsSync(worktreePath)) {
@@ -121,11 +73,25 @@ export class OpencodeAgent implements Agent {
             } else if (existingPrUrl) {
                 // Branch exists but worktree was cleaned up — check out the branch into the path
                 console.log(`[opencode-agent] Checking out existing branch ${branchName} into new worktree at ${worktreePath}`);
-                await runCmd('git', ['worktree', 'add', worktreePath, branchName], originalWorkspacePath);
+                await runCmd('git', ['worktree', 'add', worktreePath, branchName], originalWorkspacePath, 'opencode-agent');
             } else {
-                // Completely new — create branch and worktree together
-                console.log(`[opencode-agent] Creating new worktree at ${worktreePath} on branch ${branchName}`);
-                await runCmd('git', ['worktree', 'add', '-b', branchName, worktreePath], originalWorkspacePath);
+                // Completely new — check if the repo is empty (no commits yet)
+                let isRepoEmpty = false;
+                try {
+                    await runCmd('git', ['rev-parse', 'HEAD'], originalWorkspacePath, 'opencode-agent');
+                } catch (e) {
+                    // if rev-parse HEAD fails, it usually means the repo has no commits
+                    isRepoEmpty = true;
+                    console.log(`[opencode-agent] Repository appears to be empty. Using --orphan for worktree.`);
+                }
+
+                if (isRepoEmpty) {
+                    console.log(`[opencode-agent] Creating new orphan worktree at ${worktreePath} on branch ${branchName}`);
+                    await runCmd('git', ['worktree', 'add', '--orphan', '-b', branchName, worktreePath], originalWorkspacePath, 'opencode-agent');
+                } else {
+                    console.log(`[opencode-agent] Creating new worktree at ${worktreePath} on branch ${branchName}`);
+                    await runCmd('git', ['worktree', 'add', '-b', branchName, worktreePath], originalWorkspacePath, 'opencode-agent');
+                }
             }
         } catch (e: any) {
             console.error(`[opencode-agent] Failed to create git worktree: ${e.message}`);
@@ -198,7 +164,7 @@ export class OpencodeAgent implements Agent {
             // Fetch GH token so the LLM environment can execute `gh` commands
             let ghTokenEnv = '';
             try {
-                const { stdout: ghToken } = await runCmd('gh', ['auth', 'token'], originalWorkspacePath);
+                const { stdout: ghToken } = await runCmd('gh', ['auth', 'token'], originalWorkspacePath, 'opencode-agent');
                 if (ghToken.trim()) {
                     ghTokenEnv = `export GH_TOKEN=${ghToken.trim()}; `;
                 }

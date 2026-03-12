@@ -18,8 +18,8 @@ export function Sidebar() {
     const [deletingBoard, setDeletingBoard] = useState<Board | null>(null);
     const [showingCreateModal, setShowingCreateModal] = useState(false);
 
-    async function handleCreate(name: string, workspaces: Omit<BoardWorkspace, 'id' | 'board_id'>[]) {
-        const board = await createBoard(name.trim(), workspaces);
+    async function handleCreate(name: string, path: string | undefined, workspaces: Omit<BoardWorkspace, 'id' | 'board_id'>[]) {
+        const board = await createBoard(name.trim(), path, workspaces);
         setShowingCreateModal(false);
         navigate(`/boards/${board.id}`);
     }
@@ -76,8 +76,8 @@ export function Sidebar() {
             {editingBoard && (
                 <BoardModal
                     board={editingBoard}
-                    onSave={async (name, workspaces) => {
-                        await updateBoard(editingBoard.id, name, workspaces);
+                    onSave={async (name, path, workspaces) => {
+                        await updateBoard(editingBoard.id, name, path, workspaces);
                         setEditingBoard(null);
                     }}
                     onCancel={() => setEditingBoard(null)}

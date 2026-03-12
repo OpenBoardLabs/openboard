@@ -131,6 +131,7 @@ function runMigrations() {
     CREATE TABLE IF NOT EXISTS boards (
       id         TEXT PRIMARY KEY,
       name       TEXT NOT NULL,
+      path       TEXT,
       created_at TEXT NOT NULL DEFAULT (datetime('now'))
     );
 
@@ -177,6 +178,11 @@ function runMigrations() {
       on_finish_column_id  TEXT
     );
   `);
+
+  try {
+    db.run("ALTER TABLE boards ADD COLUMN path TEXT;");
+    console.log("[db] Migration: Added path column to boards table");
+  } catch (e: any) { }
 
   try {
     db.run("ALTER TABLE tickets ADD COLUMN agent_sessions TEXT NOT NULL DEFAULT '[]';");

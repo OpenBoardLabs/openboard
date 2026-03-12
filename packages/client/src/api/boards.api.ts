@@ -16,15 +16,15 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
 
 export const boardsApi = {
     getAll: () => request<Board[]>('/boards'),
-    create: (name: string, workspaces: Omit<BoardWorkspace, 'id' | 'board_id'>[] = []) =>
+    create: (name: string, path?: string, workspaces: Omit<BoardWorkspace, 'id' | 'board_id'>[] = []) =>
         request<Board>('/boards', {
             method: 'POST',
-            body: JSON.stringify({ name, workspaces })
+            body: JSON.stringify({ name, path, workspaces })
         }),
-    update: (id: string, name?: string, workspaces?: Omit<BoardWorkspace, 'id' | 'board_id'>[]) =>
+    update: (id: string, name?: string, path?: string | null, workspaces?: Omit<BoardWorkspace, 'id' | 'board_id'>[]) =>
         request<Board>(`/boards/${id}`, {
             method: 'PATCH',
-            body: JSON.stringify({ name, workspaces })
+            body: JSON.stringify({ name, path, workspaces })
         }),
     delete: (id: string) =>
         request<void>(`/boards/${id}`, { method: 'DELETE' }),

@@ -1,32 +1,13 @@
-import { createOpencodeClient } from '@opencode-ai/sdk';
 import type { Agent } from './agent.interface.js';
 import type { Ticket, ColumnConfig } from '../types.js';
 import { ticketRepository } from '../repositories/ticket.repository.js';
 import { boardRepository } from '../repositories/board.repository.js';
 import { commentRepository } from '../repositories/comment.repository.js';
 import { setupOpencodeEventListener } from './opencode.events.js';
-import { execFile, exec } from 'child_process';
-import { promisify } from 'util';
-
-const execAsync = promisify(exec);
-const execFileAsync = promisify(execFile);
-
-// Helper function to execute commands robustly on Windows
-async function runCmd(cmd: string, args: string[], cwd: string): Promise<{ stdout: string, stderr: string }> {
-    console.log(`[codereview-agent] Running: ${cmd} ${args.join(' ')} in cwd: ${cwd}`);
-    try {
-        return await execFileAsync(cmd, args, { cwd });
-    } catch (e: any) {
-        if (e.code === 'ENOENT') {
-            console.log(`[codereview-agent] ENOENT finding binary. Trying fallback exec...`);
-            return await execAsync(`${cmd} ${args.join(' ')}`, { cwd });
-        }
-        throw e;
-    }
-}
+import { createBoardScopedClient } from '../utils/opencode.js';
+import { runCmd, normalizePathForOS } from '../utils/os.js';
 
 const opencodePort = process.env.OPENCODE_PORT || 4096;
-const opencodeClient = createOpencodeClient({ baseUrl: `http://127.0.0.1:${opencodePort}` });
 const activeSessions: Record<string, string> = {};
 
 export class CodeReviewAgent implements Agent {
@@ -56,6 +37,10 @@ export class CodeReviewAgent implements Agent {
             return;
         }
 
+        // Create a board-scoped Opencode client for this ticket
+        const board = boardRepository.findById(ticket.board_id);
+        const opencodeClient = createBoardScopedClient(board?.path);
+
         ticketRepository.updateAgentSession(ticket.id, {
             column_id: ticket.column_id,
             agent_type: 'code_review',
@@ -73,7 +58,7 @@ export class CodeReviewAgent implements Agent {
         }
 
         // Resolve workspace path — code review runs in the main workspace (no new worktree needed).
-        let workspacePath = process.cwd();
+        let workspacePath = normalizePathForOS(board?.path || process.cwd());
 
         try {
             const session = await opencodeClient.session.create({
@@ -118,7 +103,7 @@ export class CodeReviewAgent implements Agent {
             // Fetch GH token so the LLM environment can execute `gh` commands
             let ghTokenEnv = '';
             try {
-                const { stdout: ghToken } = await runCmd('gh', ['auth', 'token'], workspacePath);
+                const { stdout: ghToken } = await runCmd('gh', ['auth', 'token'], workspacePath, 'codereview-agent');
                 if (ghToken.trim()) {
                     ghTokenEnv = `export GH_TOKEN=${ghToken.trim()}; `;
                 }

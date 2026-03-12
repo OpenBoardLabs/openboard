@@ -10,19 +10,19 @@ router.get('/', (_req: Request, res: Response) => {
 });
 
 router.post('/', (req: Request, res: Response) => {
-    const { name, workspaces } = req.body as { name: string, workspaces: Omit<BoardWorkspace, 'id' | 'board_id'>[] };
+    const { name, path, workspaces } = req.body as { name: string, path?: string, workspaces: Omit<BoardWorkspace, 'id' | 'board_id'>[] };
     if (!name?.trim()) {
         res.status(400).json({ error: 'Name is required' });
         return;
     }
-    const board = boardRepository.create(name.trim(), workspaces);
+    const board = boardRepository.create(name.trim(), path, workspaces);
     sseManager.emitGlobal('board:created', board);
     res.status(201).json(board);
 });
 
 router.patch('/:id', (req: Request, res: Response) => {
-    const { name, workspaces } = req.body as { name: string, workspaces: Omit<BoardWorkspace, 'id' | 'board_id'>[] };
-    const board = boardRepository.update(req.params.id, name?.trim(), workspaces);
+    const { name, path, workspaces } = req.body as { name: string, path?: string, workspaces: Omit<BoardWorkspace, 'id' | 'board_id'>[] };
+    const board = boardRepository.update(req.params.id, name?.trim(), path, workspaces);
     if (!board) {
         res.status(404).json({ error: 'Board not found' });
         return;

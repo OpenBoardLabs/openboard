@@ -10,6 +10,7 @@
     "board.empty_subtitle": "Select a board from the sidebar or create a new one.",
     "board.edit": "Edit board",
     "board.name": "Board name",
+    "board.path": "Folder Path",
     "board.workspaces": "Workspaces",
     "board.add_workspace": "Add Workspace",
     "column.add": "Add column",

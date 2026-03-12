@@ -6,16 +6,16 @@ import { X } from 'lucide-react';
 
 interface BoardModalProps {
     board?: Board; // If provided, we are editing
-    onSave: (name: string, workspaces: Omit<BoardWorkspace, 'id' | 'board_id'>[]) => void;
+    onSave: (name: string, path: string | undefined, workspaces: Omit<BoardWorkspace, 'id' | 'board_id'>[]) => void;
     onCancel: () => void;
 }
 
 export function BoardModal({ board, onSave, onCancel }: BoardModalProps) {
     const [name, setName] = useState(board?.name ?? '');
+    const [path, setPath] = useState(board?.path ?? '');
     const handleSave = () => {
-
         if (!name.trim()) return;
-        onSave(name.trim(), []);
+        onSave(name.trim(), path.trim() || undefined, []);
     };
 
     return (
@@ -38,6 +38,17 @@ export function BoardModal({ board, onSave, onCancel }: BoardModalProps) {
                             placeholder={t('board.rename_placeholder')}
                             className={styles.input}
                             autoFocus
+                        />
+                    </div>
+
+                    <div className={styles.field}>
+                        <label>{t('board.path') ?? 'Folder Path'}</label>
+                        <input
+                            type="text"
+                            value={path}
+                            onChange={e => setPath(e.target.value)}
+                            placeholder="e.g. C:/projects/my-app"
+                            className={styles.input}
                         />
                     </div>
 

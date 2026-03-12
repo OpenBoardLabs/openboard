@@ -177,8 +177,8 @@ interface AppContextValue {
     loadBoards: () => Promise<void>;
     loadBoardData: (boardId: string) => Promise<void>;
     selectBoard: (boardId: string) => void;
-    createBoard: (name: string, workspaces?: Omit<BoardWorkspace, 'id' | 'board_id'>[]) => Promise<Board>;
-    updateBoard: (id: string, name?: string, workspaces?: Omit<BoardWorkspace, 'id' | 'board_id'>[]) => Promise<void>;
+    createBoard: (name: string, path?: string, workspaces?: Omit<BoardWorkspace, 'id' | 'board_id'>[]) => Promise<Board>;
+    updateBoard: (id: string, name?: string, path?: string | null, workspaces?: Omit<BoardWorkspace, 'id' | 'board_id'>[]) => Promise<void>;
     deleteBoard: (id: string) => Promise<void>;
     createColumn: (boardId: string, name: string) => Promise<void>;
     updateColumn: (boardId: string, id: string, name: string) => Promise<void>;
@@ -239,14 +239,14 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         dispatch({ type: 'SET_ACTIVE_BOARD', payload: boardId });
     }, []);
 
-    const createBoard = useCallback(async (name: string, workspaces: Omit<BoardWorkspace, 'id' | 'board_id'>[] = []) => {
-        const board = await boardsApi.create(name, workspaces);
+    const createBoard = useCallback(async (name: string, path?: string, workspaces: Omit<BoardWorkspace, 'id' | 'board_id'>[] = []) => {
+        const board = await boardsApi.create(name, path, workspaces);
         dispatch({ type: 'ADD_BOARD', payload: board });
         return board;
     }, []);
 
-    const updateBoard = useCallback(async (id: string, name?: string, workspaces?: Omit<BoardWorkspace, 'id' | 'board_id'>[]) => {
-        const board = await boardsApi.update(id, name, workspaces);
+    const updateBoard = useCallback(async (id: string, name?: string, path?: string | null, workspaces?: Omit<BoardWorkspace, 'id' | 'board_id'>[]) => {
+        const board = await boardsApi.update(id, name, path, workspaces);
         dispatch({ type: 'UPDATE_BOARD', payload: board });
     }, []);
 

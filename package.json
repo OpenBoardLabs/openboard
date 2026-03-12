@@ -1,6 +1,6 @@
 {
   "name": "@openboard/start",
-  "version": "1.0.20",
+  "version": "1.0.24",
   "type": "module",
   "bin": {
     "openboard": "./bin/openboard.js"
@@ -28,6 +28,7 @@
     "@opencode-ai/sdk": "^1.2.24",
     "cors": "^2.8.5",
     "express": "^4.18.3",
+    "open": "^11.0.0",
     "sql.js": "^1.12.0"
   }
 }
