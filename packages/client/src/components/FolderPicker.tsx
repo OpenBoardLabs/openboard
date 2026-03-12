@@ -113,9 +113,10 @@ export function FolderPicker({ onSelect, onClose, initialPath }: FolderPickerPro
     };
 
     const renderPath = (fullPath: string) => {
+        const isPosix = fullPath.startsWith('/');
         const parts = fullPath.split(/[\\\/]/).filter(Boolean);
         const lastPart = parts.pop() || '';
-        const base = parts.join('/') + (parts.length > 0 ? '/' : '');
+        const base = (isPosix ? '/' : '') + parts.join('/') + (parts.length > 0 || isPosix ? '/' : '');
         return (
             <span className={styles.itemPath}>
                 {base}<strong>{lastPart}</strong>/
@@ -187,17 +188,21 @@ export function FolderPicker({ onSelect, onClose, initialPath }: FolderPickerPro
 
                         {!loading && !searchQuery && path && (
                             <div className={styles.breadcrumb}>
-                                {path.split(/[\\\/]/).filter(Boolean).map((part, i, arr) => (
-                                    <div key={i} className={styles.breadcrumbUnit}>
-                                        <span 
-                                            className={styles.breadcrumbItem} 
-                                            onClick={() => navigateTo(arr.slice(0, i + 1).join('/') + '/')}
-                                        >
-                                            {part}
-                                        </span>
-                                        {i < arr.length - 1 && <ChevronRight size={14} className={styles.breadcrumbSeparator} />}
-                                    </div>
-                                ))}
+                                {path.split(/[\\\/]/).filter(Boolean).map((part, i, arr) => {
+                                    const isPosix = path.startsWith('/');
+                                    const reconstructedPath = (isPosix ? '/' : '') + arr.slice(0, i + 1).join('/') + '/';
+                                    return (
+                                        <div key={i} className={styles.breadcrumbUnit}>
+                                            <span 
+                                                className={styles.breadcrumbItem} 
+                                                onClick={() => navigateTo(reconstructedPath)}
+                                            >
+                                                {part}
+                                            </span>
+                                            {i < arr.length - 1 && <ChevronRight size={14} className={styles.breadcrumbSeparator} />}
+                                        </div>
+                                    );
+                                })}
                             </div>
                         )}
 
