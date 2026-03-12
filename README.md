@@ -29,7 +29,6 @@ Make sure you have [opencode](https://github.com/google-deepmind/opencode), [Nod
 Your folder should already have `git init` and a GitHub repo configured.
 
 ```
-cd /path/to/project
 npx @openboard/start
 ```
 
