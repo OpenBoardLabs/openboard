@@ -4,7 +4,7 @@ import { t } from '../i18n/i18n';
 import { useApp } from '../store/AppContext';
 import type { Board } from '../types';
 import styles from './Sidebar.module.css';
-import { Plus, LayoutDashboard, Trash2, Pencil } from 'lucide-react';
+import { Plus, LayoutDashboard, Trash2, Pencil, Cloud } from 'lucide-react';
 import { ConfirmDialog } from './ConfirmDialog';
 import { BoardModal } from './BoardModal';
 import type { BoardWorkspace } from '../types';
@@ -92,6 +92,16 @@ export function Sidebar() {
                     onCancel={() => setDeletingBoard(null)}
                 />
             )}
+
+            <div className={styles.cloudSection}>
+                <Link to="/cloud" className={styles.cloudLink}>
+                    <Cloud size={16} />
+                    <span>Cloud</span>
+                </Link>
+                <Link to="/cloud" className={styles.getStartedBtn}>
+                    Get Started
+                </Link>
+            </div>
         </aside>
     );
 }

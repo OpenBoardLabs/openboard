@@ -4,6 +4,7 @@ import './styles/global.css';
 import { AppProvider, useApp } from './store/AppContext';
 import { Sidebar } from './components/Sidebar';
 import { BoardView } from './components/BoardView';
+import { CloudPage } from './components/Cloud';
 import { ThemeSwitcher } from './components/ThemeSwitcher';
 import styles from './App.module.css';
 
@@ -29,6 +30,7 @@ function AppShell() {
                 <div className={styles.content}>
                     <Routes>
                         <Route path="/" element={<BoardView />} />
+                        <Route path="/cloud" element={<CloudPage />} />
                         <Route path="/boards/:boardId" element={<BoardView />} />
                         <Route path="/boards/:boardId/tickets/:ticketId" element={<BoardView />} />
                         <Route path="*" element={<Navigate to="/" replace />} />
