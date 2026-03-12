@@ -168,17 +168,17 @@ export async function setupOpencodeEventListener(
                 const hasError = latestSession?.status === 'blocked';
 
                 if (!hasError) {
-                    // Mark the ticket as done now that the agent session finished processing
-                    ticketRepository.updateAgentSession(ticket.id, {
-                        column_id: ticket.column_id,
-                        agent_type: agentType,
-                        status: 'done',
-                        port: 4096,
-                        url: agentUrl,
-                        total_cost: rawSessionCost > 0 ? Number(rawSessionCost.toFixed(4)) : undefined
-                    });
-
                     if (agentType === 'code_review') {
+                        // Mark the ticket as done now that the agent session finished processing
+                        ticketRepository.updateAgentSession(ticket.id, {
+                            column_id: ticket.column_id,
+                            agent_type: agentType,
+                            status: 'done',
+                            port: 4096,
+                            url: agentUrl,
+                            total_cost: rawSessionCost > 0 ? Number(rawSessionCost.toFixed(4)) : undefined
+                        });
+
                         try {
                             // Find out if the PR was approved or changes requested
                             const latestTicket = ticketRepository.findById(ticket.id) || ticket;
@@ -299,7 +299,7 @@ export async function setupOpencodeEventListener(
                                     updateSessionComment(`🚀 **Pull Request Created**\n\nThe agent has proposed the following changes in a PR. Check it out:\n${prUrl}${rawSessionCost > 0 ? `\n\n**Total Cost:** $${rawSessionCost.toFixed(4)}` : ''}`, 'pr');
                                 }
 
-                                // Add PR URL to the active agent session so the UI displays the code review button
+                                // Add PR URL to the active agent session and mark as done
                                 ticketRepository.updateAgentSession(ticket.id, {
                                     column_id: ticket.column_id,
                                     agent_type: 'opencode',
@@ -309,23 +309,52 @@ export async function setupOpencodeEventListener(
                                     pr_url: prUrl,
                                     total_cost: rawSessionCost > 0 ? Number(rawSessionCost.toFixed(4)) : undefined
                                 });
+
+                                // Move ticket to the configured destination column (if set)
+                                if (config.on_finish_column_id) {
+                                    console.log(`[opencode-agent] Moving ticket ${ticket.id} to column ${config.on_finish_column_id}`);
+                                    const moved = ticketRepository.move(ticket.id, config.on_finish_column_id, 0);
+                                    if (moved) {
+                                        // Trigger via the queue so concurrency/priority rules are respected
+                                        agentQueue.evaluateColumnQueue(config.on_finish_column_id);
+                                    }
+                                }
                             } else {
                                 console.log(`[opencode-agent] No changes to push for ticket ${ticket.id}.`);
                                 updateSessionComment(`ℹ️ **Task Completed (No Changes)**\n\nThe agent finished the task but did not make any code changes.${rawSessionCost > 0 ? `\n\n**Total Cost:** $${rawSessionCost.toFixed(4)}` : ''}`, 'status');
+
+                                // Mark as done even if no changes
+                                ticketRepository.updateAgentSession(ticket.id, {
+                                    column_id: ticket.column_id,
+                                    agent_type: 'opencode',
+                                    status: 'done',
+                                    port: 4096,
+                                    url: agentUrl,
+                                    total_cost: rawSessionCost > 0 ? Number(rawSessionCost.toFixed(4)) : undefined
+                                });
+
+                                // Still move to the next column if no changes (assumed done)
+                                if (config.on_finish_column_id) {
+                                    console.log(`[opencode-agent] Moving ticket ${ticket.id} to column ${config.on_finish_column_id}`);
+                                    const moved = ticketRepository.move(ticket.id, config.on_finish_column_id, 0);
+                                    if (moved) {
+                                        agentQueue.evaluateColumnQueue(config.on_finish_column_id);
+                                    }
+                                }
                             }
                         } catch (error: any) {
                             console.error(`[opencode-agent] Failed to create PR for ticket ${ticket.id}`, error);
                             updateSessionComment(`❌ **Failed to Create PR**\n\nThe agent finished the task, but an error occurred while pushing changes or creating the PR:\n\`\`\`\n${error.message}\n\`\`\``, 'status');
-                        }
 
-                        // Move ticket to the configured destination column (if set)
-                        if (config.on_finish_column_id) {
-                            console.log(`[opencode-agent] Moving ticket ${ticket.id} to column ${config.on_finish_column_id}`);
-                            const moved = ticketRepository.move(ticket.id, config.on_finish_column_id, 0);
-                            if (moved) {
-                                // Trigger via the queue so concurrency/priority rules are respected
-                                agentQueue.evaluateColumnQueue(config.on_finish_column_id);
-                            }
+                            // Mark as blocked due to PR failure
+                            ticketRepository.updateAgentSession(ticket.id, {
+                                column_id: ticket.column_id,
+                                agent_type: 'opencode',
+                                status: 'blocked',
+                                port: 4096,
+                                url: agentUrl,
+                                error_message: `PR creation failed: ${error.message}`
+                            });
                         }
                     } // End of agentType === 'opencode' block
                 }
