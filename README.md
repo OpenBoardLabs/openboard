@@ -27,8 +27,8 @@ To allow multiple agents to work in parallel without tripping over each other, O
 
 ## QuickStart
 
-Make sure you have opencode, git and gh cli installed.
-Your folder should already have git init and a github repo configured.
+Make sure you have [opencode](https://github.com/google-deepmind/opencode), [Node.js](https://nodejs.org/), [Git](https://git-scm.com/downloads), and [GitHub CLI](https://cli.github.com/) installed.
+Your folder should already have `git init` and a GitHub repo configured.
 
 ```
 cd /path/to/project
