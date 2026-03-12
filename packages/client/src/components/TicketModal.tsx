@@ -7,7 +7,8 @@ import { PRIORITIES } from '../constants';
 import { PriorityBadge } from './PriorityBadge';
 import { ConfirmDialog } from './ConfirmDialog';
 import styles from './TicketModal.module.css';
-import { X, Trash2, MessageSquare, Send, Bot, CheckCircle, ExternalLink, RotateCcw, GitPullRequest } from 'lucide-react';
+import { X, Trash2, MessageSquare, Send, CheckCircle, ExternalLink, RotateCcw, GitPullRequest } from 'lucide-react';
+import { getAgentConfig, getAgentConfigByAuthor } from '../constants/agents';
 
 interface TicketModalProps {
     ticket?: Ticket;
@@ -94,12 +95,15 @@ export function TicketModal({ ticket, columnId, onClose }: TicketModalProps) {
                             if (!activeSession) return null;
 
                             const session = activeSession;
-                            if (session.status === 'processing') return (
-                                <div key={session.started_at} className={`${styles.statusBadge} ${styles.processing}`}>
-                                    <Bot size={12} className={styles.pulse} />
-                                    {t('agent.status.processing' as any)}
-                                </div>
-                            );
+                            if (session.status === 'processing') {
+                                const agentConfig = getAgentConfig(session.agent_type);
+                                return (
+                                    <div key={session.started_at} className={`${styles.statusBadge} ${styles.processing}`}>
+                                        <span className={styles.pulse}>{agentConfig.icon}</span>
+                                        {agentConfig.processingText}
+                                    </div>
+                                );
+                            }
                             if (session.status === 'done') return (
                                 <div key={session.started_at} className={`${styles.statusBadge} ${styles.done}`}>
                                     <CheckCircle size={12} />
@@ -236,7 +240,6 @@ export function TicketModal({ ticket, columnId, onClose }: TicketModalProps) {
                     {ticket && ticket.agent_sessions && ticket.agent_sessions.length > 0 && (
                         <div className={styles.section}>
                             <span className={styles.sectionLabel} style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                <Bot size={14} />
                                 Agent History
                             </span>
                             <div className={styles.agentHistoryList}>
@@ -247,6 +250,9 @@ export function TicketModal({ ticket, columnId, onClose }: TicketModalProps) {
                                             <div className={styles.historyMeta}>
                                                 <span className={styles.historyCol}>{colName}</span>
                                                 <span className={`${styles.historyStatus} ${styles[session.status] || ''}`}>
+                                                    <span style={{ marginRight: '4px', display: 'inline-flex', verticalAlign: 'middle' }}>
+                                                        {getAgentConfig(session.agent_type).icon}
+                                                    </span>
                                                     {session.status === 'needs_approval' ? 'Needs Approval' : session.status}
                                                 </span>
                                                 {session.total_cost !== undefined && session.total_cost > 0 && (
@@ -304,7 +310,9 @@ export function TicketModal({ ticket, columnId, onClose }: TicketModalProps) {
                                             <span className={styles.commentAuthor}>
                                                 {c.author === 'user' ? 'You' : (
                                                     <>
-                                                        <Bot size={12} className={styles.botIcon} />
+                                                        <span style={{ marginRight: '4px', display: 'inline-flex', verticalAlign: 'middle' }}>
+                                                            {getAgentConfigByAuthor(c.author).icon}
+                                                        </span>
                                                         {c.author}
                                                     </>
                                                 )}

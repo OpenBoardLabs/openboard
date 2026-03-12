@@ -5,8 +5,8 @@ import { PriorityBadge } from './PriorityBadge';
 import styles from './TicketCard.module.css';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { Bot, CheckCircle, ExternalLink, GitPullRequest } from 'lucide-react';
-import { t } from '../i18n/i18n';
+import { CheckCircle, ExternalLink, GitPullRequest } from 'lucide-react';
+import { getAgentConfig } from '../constants/agents';
 
 interface TicketCardProps {
     ticket: Ticket;
@@ -103,12 +103,12 @@ export function TicketCard({ ticket, isOverlay }: TicketCardProps) {
                                     {session.status === 'done' ? <CheckCircle size={14} className={styles.doneIcon} /> :
                                         session.status === 'blocked' ? <span style={{ color: 'red' }}>⚠️</span> :
                                             session.status === 'needs_approval' ? <span style={{ color: '#f59e0b', fontSize: '14px', lineHeight: 1 }}>✋</span> :
-                                                <Bot size={14} className={session.status === 'processing' ? styles.processingIcon : ''} />}
+                                                getAgentConfig(session.agent_type).icon}
                                     <span>
                                         {session.status === 'blocked' ? 'Error' :
                                             session.status === 'done' ? 'Done' :
                                                 session.status === 'needs_approval' ? 'Needs Approval' :
-                                                    session.status === 'processing' ? t('agent.status.processing' as any) || 'Processing' :
+                                                    session.status === 'processing' ? getAgentConfig(session.agent_type).processingText :
                                                         'Agent UI'}
                                     </span>
                                     <ExternalLink size={12} />
