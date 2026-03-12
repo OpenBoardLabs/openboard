@@ -1,9 +1,7 @@
 # Openboard: The AI Agent Orchestration Board
-This is a work on progress, contribuations are welcome.
+A unified board to orchestrate AI agents that plan, code, review, and test.
 
 ![Openboard Screenshot](./screenshot.png)
-
-
 
 
 Openboard is not just another Kanban board—it is an orchestration platform specifically designed to **manage, monitor, and collaborate with autonomous AI coding agents**. While it features a real-time Kanban interface built with React and Node.js, our primary focus is on providing a seamless environment for agents to pick up tasks, execute them in isolation, and submit their work.
