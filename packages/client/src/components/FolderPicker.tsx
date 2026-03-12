@@ -165,76 +165,78 @@ export function FolderPicker({ onSelect, onClose, initialPath }: FolderPickerPro
                         </div>
                     </div>
 
-                    {!searchQuery && recentProjects.length > 0 && (
-                        <div className={styles.section}>
-                            <h3 className={styles.sectionTitle}>Recent projects</h3>
-                            <div className={styles.list}>
-                                {recentProjects.map((p) => (
-                                    <div key={p} className={styles.item} onClick={() => handleSelect(p)}>
-                                        <div className={styles.itemIcon}><Folder size={16} className={styles.folderIcon} /></div>
-                                        {renderPath(p)}
+                    {!loading && !searchQuery && path && (
+                        <div className={styles.breadcrumb}>
+                            {path.split(/[\\\/]/).filter(Boolean).map((part, i, arr) => {
+                                const isPosix = path.startsWith('/');
+                                const reconstructedPath = (isPosix ? '/' : '') + arr.slice(0, i + 1).join('/') + '/';
+                                return (
+                                    <div key={i} className={styles.breadcrumbUnit}>
+                                        <span 
+                                            className={styles.breadcrumbItem} 
+                                            onClick={() => navigateTo(reconstructedPath)}
+                                        >
+                                            {part}
+                                        </span>
+                                        {i < arr.length - 1 && <ChevronRight size={14} className={styles.breadcrumbSeparator} />}
                                     </div>
-                                ))}
-                            </div>
+                                );
+                            })}
                         </div>
                     )}
 
-                    <div className={styles.section}>
-                        <h3 className={styles.sectionTitle}>
-                            {searchQuery ? (searchMode === 'local' ? 'Search results' : 'Global search results') : 'Open project'}
-                        </h3>
-                        
-                        {loading && <div className={styles.loading}>Searching...</div>}
-
-                        {!loading && !searchQuery && path && (
-                            <div className={styles.breadcrumb}>
-                                {path.split(/[\\\/]/).filter(Boolean).map((part, i, arr) => {
-                                    const isPosix = path.startsWith('/');
-                                    const reconstructedPath = (isPosix ? '/' : '') + arr.slice(0, i + 1).join('/') + '/';
-                                    return (
-                                        <div key={i} className={styles.breadcrumbUnit}>
-                                            <span 
-                                                className={styles.breadcrumbItem} 
-                                                onClick={() => navigateTo(reconstructedPath)}
-                                            >
-                                                {part}
-                                            </span>
-                                            {i < arr.length - 1 && <ChevronRight size={14} className={styles.breadcrumbSeparator} />}
+                    <div className={styles.body}>
+                        {!searchQuery && recentProjects.length > 0 && (
+                            <div className={styles.section}>
+                                <h3 className={styles.sectionTitle}>Recent projects</h3>
+                                <div className={styles.list}>
+                                    {recentProjects.map((p) => (
+                                        <div key={p} className={styles.item} onClick={() => handleSelect(p)}>
+                                            <div className={styles.itemIcon}><Folder size={16} className={styles.folderIcon} /></div>
+                                            {renderPath(p)}
                                         </div>
-                                    );
-                                })}
+                                    ))}
+                                </div>
                             </div>
                         )}
 
-                        <div className={styles.list}>
-                            {displayEntries.map((entry) => (
-                                <div 
-                                    key={entry.path} 
-                                    className={styles.item} 
-                                    onClick={() => navigateTo(entry.path)}
-                                    onDoubleClick={() => handleSelect(entry.path)}
-                                >
-                                    <div className={styles.itemIcon}>{getIcon(entry)}</div>
-                                    {renderPath(entry.path)}
-                                </div>
-                            ))}
+                        <div className={styles.section}>
+                            <h3 className={styles.sectionTitle}>
+                                {searchQuery ? (searchMode === 'local' ? 'Search results' : 'Global search results') : 'Open project'}
+                            </h3>
+                            
+                            {loading && <div className={styles.loading}>Searching...</div>}
 
-                            {globalSearchResults && globalSearchResults.length > 0 && (
-                                <>
-                                    <div className={styles.divider}><span>Global Search Results</span></div>
-                                    {globalSearchResults.map((entry) => (
-                                        <div 
-                                            key={entry.path} 
-                                            className={styles.item} 
-                                            onClick={() => navigateTo(entry.path)}
-                                            onDoubleClick={() => handleSelect(entry.path)}
-                                        >
-                                            <div className={styles.itemIcon}>{getIcon(entry)}</div>
-                                            {renderPath(entry.path)}
-                                        </div>
-                                    ))}
-                                </>
-                            )}
+                            <div className={styles.list}>
+                                {displayEntries.map((entry) => (
+                                    <div 
+                                        key={entry.path} 
+                                        className={styles.item} 
+                                        onClick={() => navigateTo(entry.path)}
+                                        onDoubleClick={() => handleSelect(entry.path)}
+                                    >
+                                        <div className={styles.itemIcon}>{getIcon(entry)}</div>
+                                        {renderPath(entry.path)}
+                                    </div>
+                                ))}
+
+                                {globalSearchResults && globalSearchResults.length > 0 && (
+                                    <>
+                                        <div className={styles.divider}><span>Global Search Results</span></div>
+                                        {globalSearchResults.map((entry) => (
+                                            <div 
+                                                key={entry.path} 
+                                                className={styles.item} 
+                                                onClick={() => navigateTo(entry.path)}
+                                                onDoubleClick={() => handleSelect(entry.path)}
+                                            >
+                                                <div className={styles.itemIcon}>{getIcon(entry)}</div>
+                                                {renderPath(entry.path)}
+                                            </div>
+                                        ))}
+                                    </>
+                                )}
+                            </div>
                         </div>
                     </div>
                 </div>
