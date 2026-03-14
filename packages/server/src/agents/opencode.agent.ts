@@ -207,6 +207,12 @@ export class OpencodeAgent implements Agent {
                 promptText += `\n⚠️ **ATTENTION: CHANGES REQUESTED** ⚠️\nYou previously worked on this ticket and opened PR ${existingPrUrl}. However, changes were requested during code review.\n\nPlease use \`${ghTokenEnv}gh pr view ${existingPrUrl} --comments\` to read the requested changes, make the necessary code updates to fix the issues, and summarize your fixes.\n`;
             }
 
+            const comments = await commentRepository.findByTicketId(ticket.id);
+
+            if (comments.length > 0) {
+                promptText += `\n\n Comments from the ticket:\n${comments.map(c => `${c.author}: ${c.content}`).join('\n')}`;
+            }
+
             const promptRes = await opencodeClient.session.promptAsync({
                 path: { id: sessionID },
                 body: {
