@@ -13,7 +13,7 @@ export function useSSE(boardId: string | null, dispatch: Dispatch) {
     useEffect(() => {
         if (!boardId) return;
 
-        // Convert /api base url (http://localhost:3001/api) → SSE url
+        // Convert /api base url (http://localhost:4199/api) → SSE url
         const baseOrigin = API_BASE_URL.replace(/\/api$/, '');
         const url = `${baseOrigin}/api/events?boardId=${encodeURIComponent(boardId)}`;
 
