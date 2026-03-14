@@ -204,5 +204,10 @@ function runMigrations() {
     console.log("[db] Migration: Added on_reject_column_id column to column_configs table");
   } catch (e: any) { }
 
+  try {
+    db.run("ALTER TABLE column_configs ADD COLUMN review_mode TEXT DEFAULT 'pr';");
+    console.log("[db] Migration: Added review_mode column to column_configs table");
+  } catch (e: any) { }
+
   persist();
 }

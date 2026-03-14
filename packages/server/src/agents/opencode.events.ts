@@ -285,21 +285,26 @@ export async function setupOpencodeEventListener(
                                 }
 
                                 await runCmd('git', ['push', '-u', 'origin', branchName], worktreePath, 'opencode-events');
+                                
+                                let prUrl: string | undefined;
+                                if (config.review_mode !== 'local') {
+                                    // Check if a PR already exists for this ticket (fetch fresh from DB)
+                                    const freshTicket = ticketRepository.findById(ticket.id) || ticket;
+                                    const existingPrUrlSession = [...(freshTicket.agent_sessions || [])].reverse().find(s => s.pr_url);
+                                    prUrl = existingPrUrlSession?.pr_url;
 
-                                // Check if a PR already exists for this ticket (fetch fresh from DB)
-                                const freshTicket = ticketRepository.findById(ticket.id) || ticket;
-                                const existingPrUrlSession = [...(freshTicket.agent_sessions || [])].reverse().find(s => s.pr_url);
-                                let prUrl = existingPrUrlSession?.pr_url;
-
-                                if (prUrl) {
-                                    updateSessionComment(`🚀 **Pull Request Updated**\n\nThe agent has updated the existing PR:\n${prUrl}${rawSessionCost > 0 ? `\n\n**Total Cost:** $${rawSessionCost.toFixed(4)}` : ''}`, 'pr');
+                                    if (prUrl) {
+                                        updateSessionComment(`🚀 **Pull Request Updated**\n\nThe agent has updated the existing PR:\n${prUrl}${rawSessionCost > 0 ? `\n\n**Total Cost:** $${rawSessionCost.toFixed(4)}` : ''}`, 'pr');
+                                    } else {
+                                        const { stdout: prOut } = await runCmd('gh', ['pr', 'create', '--title', `"${ticket.title.replace(/"/g, '\\"')}"`, '--body', `"Automated PR from OpenCode Agent for ticket #${ticket.id}"`], worktreePath, 'opencode-events');
+                                        prUrl = prOut.trim();
+                                        updateSessionComment(`🚀 **Pull Request Created**\n\nThe agent has proposed the following changes in a PR. Check it out:\n${prUrl}${rawSessionCost > 0 ? `\n\n**Total Cost:** $${rawSessionCost.toFixed(4)}` : ''}`, 'pr');
+                                    }
                                 } else {
-                                    const { stdout: prOut } = await runCmd('gh', ['pr', 'create', '--title', `"${ticket.title.replace(/"/g, '\\"')}"`, '--body', `"Automated PR from OpenCode Agent for ticket #${ticket.id}"`], worktreePath, 'opencode-events');
-                                    prUrl = prOut.trim();
-                                    updateSessionComment(`🚀 **Pull Request Created**\n\nThe agent has proposed the following changes in a PR. Check it out:\n${prUrl}${rawSessionCost > 0 ? `\n\n**Total Cost:** $${rawSessionCost.toFixed(4)}` : ''}`, 'pr');
+                                    updateSessionComment(`✅ **Task Completed (Local Review)**\n\nThe agent finished the task. You can review the changes locally at:\n\`${worktreePath}\`${rawSessionCost > 0 ? `\n\n**Total Cost:** $${rawSessionCost.toFixed(4)}` : ''}`, 'status');
                                 }
 
-                                // Add PR URL to the active agent session and mark as done
+                                // Add PR URL or Worktree Path to the active agent session and mark as done
                                 ticketRepository.updateAgentSession(ticket.id, {
                                     column_id: ticket.column_id,
                                     agent_type: 'opencode',
@@ -307,6 +312,7 @@ export async function setupOpencodeEventListener(
                                     port: 4096,
                                     url: agentUrl,
                                     pr_url: prUrl,
+                                    worktree_path: config.review_mode === 'local' ? worktreePath : undefined,
                                     total_cost: rawSessionCost > 0 ? Number(rawSessionCost.toFixed(4)) : undefined
                                 });
 

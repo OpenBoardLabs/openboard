@@ -68,6 +68,7 @@ export interface ColumnConfig {
     agent_type: AgentType;
     agent_model?: string | null;
     max_agents?: number;
+    review_mode?: 'pr' | 'local';
     on_finish_column_id: string | null;
     on_reject_column_id?: string | null;
 }

@@ -192,7 +192,7 @@ interface AppContextValue {
     loadColumnConfigs: (boardId: string) => Promise<void>;
     loadComments: (boardId: string, ticketId: string) => Promise<void>;
     addComment: (boardId: string, ticketId: string, content: string, author?: string) => Promise<void>;
-    updateColumnConfig: (boardId: string, columnId: string, data: { agentType: AgentType; agentModel?: string | null; maxAgents?: number; onFinishColumnId?: string | null; onRejectColumnId?: string | null }) => Promise<void>;
+    updateColumnConfig: (boardId: string, columnId: string, data: { agentType: AgentType; maxAgents?: number; reviewMode?: 'pr' | 'local'; onFinishColumnId?: string | null; onRejectColumnId?: string | null }) => Promise<void>;
     deleteColumnConfig: (boardId: string, columnId: string) => Promise<void>;
 }
 
