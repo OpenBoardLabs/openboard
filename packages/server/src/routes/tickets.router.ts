@@ -5,6 +5,7 @@ import { commentRepository } from '../repositories/comment.repository.js';
 import { sseManager } from '../sse.js';
 import { triggerAgent } from '../agents/agent-runner.js';
 import { agentQueue } from '../agents/agent-queue.js';
+import { abortSession } from '../agents/abort-session.js';
 import { runCmd } from '../utils/os.js';
 import { findFreePort } from '../utils/port.js';
 import { processRegistry } from '../utils/process-registry.js';
@@ -64,11 +65,25 @@ router.patch('/:id', (req: Request, res: Response) => {
 // PUT /api/boards/:boardId/tickets/:id/move
 router.put('/:id/move', (req: Request, res: Response) => {
     const { toColumnId, position } = req.body as { toColumnId: string; position: number };
+    
+    const existingTicket = ticketRepository.findById(req.params.id);
+    if (!existingTicket) {
+        res.status(404).json({ error: 'Ticket not found' });
+        return;
+    }
+    
+    const fromColumnId = existingTicket.column_id;
+    
     const ticket = ticketRepository.move(req.params.id, toColumnId, position);
     if (!ticket) {
         res.status(404).json({ error: 'Ticket not found' });
         return;
     }
+    
+    if (fromColumnId !== toColumnId) {
+        abortSession(req.params.id);
+    }
+    
     triggerAgent(ticket);
     res.json(ticket);
 });

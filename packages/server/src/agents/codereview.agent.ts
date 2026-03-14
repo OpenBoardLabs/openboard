@@ -9,9 +9,9 @@ import { runCmd, normalizePathForOS } from '../utils/os.js';
 import { findFreePort } from '../utils/port.js';
 import { processRegistry } from '../utils/process-registry.js';
 import { spawn } from 'child_process';
+import { activeSessions } from './active-sessions.js';
 
 const opencodePort = process.env.OPENCODE_PORT || 4096;
-const activeSessions: Record<string, string> = {};
 
 export class CodeReviewAgent implements Agent {
     async run(ticket: Ticket, config: ColumnConfig): Promise<void> {
