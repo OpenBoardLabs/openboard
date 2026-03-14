@@ -56,8 +56,8 @@ export function Column({ column, tickets, boardId }: ColumnProps) {
                             <button className={styles.iconBtn} onClick={handleAddClick} title={t('column.add_ticket')}>
                                 <Plus size={14} />
                             </button>
-                            <button 
-                                className={`${styles.iconBtn} ${config ? styles.botActive : ''}`} 
+                            <button
+                                className={`${styles.iconBtn} ${config ? styles.botActive : ''}`}
                                 onClick={() => setSettingsOpen(o => !o)}
                                 title={config ? `${t('agent.type' as any)}: ${config.agent_type}` : t('board.edit')}
                             >

@@ -84,7 +84,7 @@ export function TicketCard({ ticket, isOverlay }: TicketCardProps) {
         if (!ticket || !boardId) return;
         e.stopPropagation();
         e.preventDefault();
-        
+
         try {
             const { url } = await ticketsApi.resumeSession(boardId, ticket.id, sessionIndex);
             window.open(url, '_blank', 'noopener,noreferrer');
@@ -162,13 +162,13 @@ export function TicketCard({ ticket, isOverlay }: TicketCardProps) {
                 boardId={boardId!}
                 ticket={ticket}
             />
-            
+
             <p className={styles.title}>{ticket.title}</p>
-            
+
             {ticket.description && (
                 <p className={styles.description}>{ticket.description}</p>
             )}
-            
+
             {(prSession || worktreeSession?.worktree_path) && (
                 <div className={styles.footer}>
                     <div className={styles.footerActions}>

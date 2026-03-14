@@ -121,6 +121,10 @@ function reducer(state: AppState, action: Action): AppState {
             if (!exists) {
                 return { ...state, tickets: [...state.tickets, action.payload] };
             }
+            const isMoved = state.tickets.find(t => t.id === action.payload.id)?.column_id !== action.payload.column_id;
+            if (isMoved) {
+                return { ...state, tickets: state.tickets.map(t => t.id === action.payload.id ? action.payload : t), recentlyAutoMoved: [...state.recentlyAutoMoved, action.payload.id] };
+            }
             return { ...state, tickets: state.tickets.map(t => t.id === action.payload.id ? action.payload : t) };
         }
         case 'DELETE_TICKET':

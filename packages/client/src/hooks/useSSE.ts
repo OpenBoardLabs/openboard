@@ -33,8 +33,10 @@ export function useSSE(boardId: string | null, dispatch: Dispatch) {
         handle('ticket:created', (data) =>
             dispatchRef.current({ type: 'ADD_TICKET', payload: data as Ticket }));
 
-        handle('ticket:updated', (data) =>
-            dispatchRef.current({ type: 'UPDATE_TICKET', payload: data as Ticket }));
+        handle('ticket:updated', (data) => {
+            const ticket = data as Ticket;
+            dispatchRef.current({ type: 'UPDATE_TICKET', payload: ticket });
+        });
 
         handle('ticket:moved', (data) => {
             const ticket = data as Ticket;
