@@ -33,8 +33,9 @@ export function TicketCard({ ticket, isOverlay }: TicketCardProps) {
     const activeColumnSession = [...(ticket.agent_sessions ?? [])].reverse().find(s => s.column_id === ticket.column_id);
     const hasNeedsApproval = activeColumnSession?.status === 'needs_approval';
 
-    // Find the most recent session with a PR URL anywhere
+    // Find the most recent session with a PR URL or Worktree Path anywhere
     const prSession = [...(ticket.agent_sessions ?? [])].reverse().find(s => s.pr_url);
+    const worktreeSession = [...(ticket.agent_sessions ?? [])].reverse().find(s => s.worktree_path);
 
     return (
         <div
@@ -45,35 +46,38 @@ export function TicketCard({ ticket, isOverlay }: TicketCardProps) {
             {...listeners}
             onClick={() => navigate(`/boards/${boardId}/tickets/${ticket.id}`)}
         >
-            {prSession && prSession.pr_url && (
-                <a
-                    href={prSession.pr_url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className={`${styles.inspectBtn} ${styles.prButtonOverlay}`}
-                    style={{ backgroundColor: '#2da44e', color: 'white', borderColor: '#2da44e' }}
-                    title="View Code Review"
-                    onClick={(e) => e.stopPropagation()}
-                >
-                    <GitPullRequest size={14} />
-                    <span>PR</span>
-                    <ExternalLink size={12} />
-                </a>
-            )}
-            {/* Show worktree button when PR creation failed */}
-            {activeColumnSession?.status === 'blocked' && activeColumnSession?.error_message?.includes('PR creation failed') && activeColumnSession?.worktree_path && (
-                <button
-                    className={`${styles.inspectBtn} ${styles.prButtonOverlay}`}
-                    style={{ backgroundColor: '#6e7681', color: 'white', borderColor: '#6e7681' }}
-                    title="Copy Worktree Path"
-                    onClick={(e) => {
-                        e.stopPropagation();
-                        navigator.clipboard.writeText(activeColumnSession.worktree_path!);
-                    }}
-                >
-                    <Copy size={14} />
-                    <span>Worktree</span>
-                </button>
+            {(prSession || worktreeSession?.worktree_path) && (
+                <div className={styles.prButtonOverlay}>
+                    {prSession?.pr_url && (
+                        <a
+                            href={prSession.pr_url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className={styles.inspectBtn}
+                            style={{ backgroundColor: '#2da44e', color: 'white', borderColor: '#2da44e' }}
+                            title="View Code Review"
+                            onClick={(e) => e.stopPropagation()}
+                        >
+                            <GitPullRequest size={14} />
+                            <span>PR</span>
+                            <ExternalLink size={12} />
+                        </a>
+                    )}
+                    {worktreeSession?.worktree_path && (
+                        <button
+                            className={`${styles.inspectBtn} ${styles.worktreeBtn}`}
+                            title="Copy Worktree Path"
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                navigator.clipboard.writeText(worktreeSession.worktree_path!);
+                                // Optional: add a temporary "Copied!" state or toast
+                            }}
+                        >
+                            <Copy size={14} />
+                            <span>Worktree</span>
+                        </button>
+                    )}
+                </div>
             )}
             <p className={`${styles.title} ${prSession ? styles.titleWithPr : ''}`}>{ticket.title}</p>
             {ticket.description && (

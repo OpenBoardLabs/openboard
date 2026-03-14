@@ -345,46 +345,27 @@ export async function setupOpencodeEventListener(
                         } catch (error: any) {
                             console.error(`[opencode-agent] Failed to create PR for ticket ${ticket.id}`, error);
 
-                            // Check if worktree was already saved in a previous session
-                            const freshTicket = ticketRepository.findById(ticket.id) || ticket;
-                            const previousWorktreeSession = [...(freshTicket.agent_sessions || [])].reverse().find(s => s.worktree_path && s.worktree_path !== worktreePath);
-                            const previousWorktreePath = previousWorktreeSession?.worktree_path;
+                            // The Code Review agent can now handle local worktrees directly.
+                            // Even if PR creation fails, we can mark as "done" and move the ticket
+                            // so the local review process can start.
+                            updateSessionComment(`⚠️ **PR Creation / Push Failed**\n\nThe agent could not complete the PR lifecycle:\n\`\`\`\n${error.message}\n\`\`\`\n\nHowever, your changes are saved locally. Moving ticket to Code Review for local analysis.\n\nYou can review changes manually at: ${worktreePath}`, 'status');
 
-                            if (previousWorktreePath) {
-                                // Worktree was already saved in a previous run - mark as done and move instead of blocking
-                                console.log(`[opencode-agent] Worktree already saved at ${previousWorktreePath}. Marking ticket as done and moving.`);
-                                updateSessionComment(`⚠️ **PR Creation Failed (Again)**\n\nThe agent could not create the PR:\n\`\`\`\n${error.message}\n\`\`\`\n\nHowever, the worktree was already saved at a previous attempt. Marking ticket as done.\n\nYou can review the changes locally at: ${previousWorktreePath}`, 'status');
+                            ticketRepository.updateAgentSession(ticket.id, {
+                                column_id: ticket.column_id,
+                                agent_type: 'opencode',
+                                status: 'done',
+                                port: 4096,
+                                url: agentUrl,
+                                worktree_path: worktreePath,
+                                total_cost: rawSessionCost > 0 ? Number(rawSessionCost.toFixed(4)) : undefined
+                            });
 
-                                ticketRepository.updateAgentSession(ticket.id, {
-                                    column_id: ticket.column_id,
-                                    agent_type: 'opencode',
-                                    status: 'done',
-                                    port: 4096,
-                                    url: agentUrl,
-                                    worktree_path: previousWorktreePath,
-                                    total_cost: rawSessionCost > 0 ? Number(rawSessionCost.toFixed(4)) : undefined
-                                });
-
-                                if (config.on_finish_column_id) {
-                                    console.log(`[opencode-agent] Moving ticket ${ticket.id} to column ${config.on_finish_column_id}`);
-                                    const moved = ticketRepository.move(ticket.id, config.on_finish_column_id, 0);
-                                    if (moved) {
-                                        agentQueue.evaluateColumnQueue(config.on_finish_column_id);
-                                    }
+                            if (config.on_finish_column_id) {
+                                console.log(`[opencode-agent] Moving ticket ${ticket.id} to column ${config.on_finish_column_id}`);
+                                const moved = ticketRepository.move(ticket.id, config.on_finish_column_id, 0);
+                                if (moved) {
+                                    agentQueue.evaluateColumnQueue(config.on_finish_column_id);
                                 }
-                            } else {
-                                // First time PR failure - block the ticket as before
-                                updateSessionComment(`❌ **Failed to Create PR**\n\nThe agent finished the task, but an error occurred while pushing changes or creating the PR:\n\`\`\`\n${error.message}\n\`\`\`\n\nYou can review the changes locally at: ${worktreePath}`, 'status');
-
-                                ticketRepository.updateAgentSession(ticket.id, {
-                                    column_id: ticket.column_id,
-                                    agent_type: 'opencode',
-                                    status: 'blocked',
-                                    port: 4096,
-                                    url: agentUrl,
-                                    worktree_path: worktreePath,
-                                    error_message: `PR creation failed: ${error.message}`
-                                });
                             }
                         }
                     } // End of agentType === 'opencode' block

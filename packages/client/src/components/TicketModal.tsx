@@ -7,7 +7,7 @@ import { PRIORITIES } from '../constants';
 import { PriorityBadge } from './PriorityBadge';
 import { ConfirmDialog } from './ConfirmDialog';
 import styles from './TicketModal.module.css';
-import { X, Trash2, MessageSquare, Send, CheckCircle, ExternalLink, RotateCcw, GitPullRequest } from 'lucide-react';
+import { X, Trash2, MessageSquare, Send, CheckCircle, ExternalLink, RotateCcw, GitPullRequest, Copy } from 'lucide-react';
 import { getAgentConfig, getAgentConfigByAuthor } from '../constants/agents';
 
 interface TicketModalProps {
@@ -148,11 +148,19 @@ export function TicketModal({ ticket, columnId, onClose }: TicketModalProps) {
                                 }
                             }
 
-                            if (!activeSession && !prSession) return null;
+                            let worktreeSession = null;
+                            for (let i = ticket.agent_sessions.length - 1; i >= 0; i--) {
+                                if (ticket.agent_sessions[i].worktree_path) {
+                                    worktreeSession = ticket.agent_sessions[i];
+                                    break;
+                                }
+                            }
+
+                            if (!activeSession && !prSession && !worktreeSession) return null;
                             const session = activeSession;
 
                             return (
-                                <React.Fragment key={(session?.started_at || prSession?.started_at)}>
+                                <React.Fragment key={(session?.started_at || prSession?.started_at || worktreeSession?.started_at)}>
                                     {session?.status === 'blocked' && (
                                         <button
                                             className={styles.sessionBtn}
@@ -187,6 +195,16 @@ export function TicketModal({ ticket, columnId, onClose }: TicketModalProps) {
                                             <GitPullRequest size={14} />
                                             <span>PR</span>
                                         </a>
+                                    )}
+                                    {worktreeSession?.worktree_path && (
+                                        <button
+                                            className={styles.sessionBtn}
+                                            title="Copy Worktree Path"
+                                            onClick={() => navigator.clipboard.writeText(worktreeSession!.worktree_path!)}
+                                        >
+                                            <Copy size={14} />
+                                            <span>Worktree</span>
+                                        </button>
                                     )}
                                 </React.Fragment>
                             );
