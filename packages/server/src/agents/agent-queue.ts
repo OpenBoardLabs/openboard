@@ -98,28 +98,32 @@ class AgentQueueManager {
                     ? ticket.agent_sessions[ticket.agent_sessions.length - 1]
                     : null;
 
+                const hasActiveSession = ticket.agent_sessions.some(
+                    s => s.status === 'processing' || s.status === 'needs_approval'
+                );
+
+                if (hasActiveSession) {
+                    activeCount++;
+                    continue;
+                }
+
+                const wasInAnotherColumn = ticket.agent_sessions.some(
+                    s => s.column_id !== columnId
+                );
+
                 if (!lastSession) {
-                    // Fresh ticket, no history
                     eligibleTickets.push(ticket);
-                } else if (lastSession.column_id !== columnId) {
-                    // Ticket just arrived from another column (on_finish or on_reject move)
+                } else if (wasInAnotherColumn) {
                     eligibleTickets.push(ticket);
                 } else {
-                    // Last session is for this column
-                    if (lastSession.status === 'processing' || lastSession.status === 'needs_approval') {
-                        activeCount++;
-                    } else if (lastSession.status === 'done') {
-                        // Finished here naturally; don't re-run unless forced
+                    if (lastSession.status === 'done') {
                         if (this.forcedTickets.has(ticket.id)) {
                             eligibleTickets.push(ticket);
                         }
-                        // else skip
                     } else if (lastSession.status === 'blocked') {
-                        // Blocked; skip unless the user explicitly retried (force)
                         if (this.forcedTickets.has(ticket.id)) {
                             eligibleTickets.push(ticket);
                         }
-                        // else skip
                     }
                 }
             }
