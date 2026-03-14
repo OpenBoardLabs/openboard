@@ -191,6 +191,12 @@ function runMigrations() {
   } catch (e: any) { }
 
   try {
+    db.run("ALTER TABLE tickets ADD COLUMN column_moves TEXT NOT NULL DEFAULT '[]';");
+    console.log("[db] Migration: Added column_moves column to tickets table");
+  } catch (e: any) { }
+
+
+  try {
     db.run("ALTER TABLE column_configs ADD COLUMN agent_model TEXT;");
     console.log("[db] Migration: Added agent_model column to column_configs table");
   } catch (e: any) { }
@@ -209,6 +215,8 @@ function runMigrations() {
     db.run("ALTER TABLE column_configs ADD COLUMN review_mode TEXT DEFAULT 'pr';");
     console.log("[db] Migration: Added review_mode column to column_configs table");
   } catch (e: any) { }
+
+
 
   persist();
 }

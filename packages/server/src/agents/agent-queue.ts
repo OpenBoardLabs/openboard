@@ -102,11 +102,12 @@ class AgentQueueManager {
                 );
 
                 if (hasActiveSession) {
+                    console.log("hasActiveSession")
                     activeCount++;
                     continue;
                 }
 
-                const wasInAnotherColumn = ticket.column_moves.length > 0;
+                const wasInAnotherColumn = ticket.column_moves.length > 0 && ticket.column_moves[ticket.column_moves.length - 1].to_column_id == columnId;
 
                 if (!lastSession) {
                     eligibleTickets.push(ticket);
