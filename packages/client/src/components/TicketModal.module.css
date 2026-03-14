@@ -387,34 +387,57 @@
     cursor: not-allowed;
 }
 
+/* Comments — open, clean layout */
 .commentsSection {
     flex: 1;
     display: flex;
     flex-direction: column;
-    gap: var(--space-3);
+    gap: var(--space-5);
     overflow: hidden;
+    min-height: 0;
+}
+
+.commentsTitle {
+    font-size: var(--text-sm);
+    font-weight: 600;
+    color: var(--color-text-main);
+    margin: 0;
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    flex-shrink: 0;
+}
+
+.commentsTitle svg {
+    color: var(--color-text-muted);
+    flex-shrink: 0;
 }
 
 .commentList {
     display: flex;
     flex-direction: column;
-    gap: 12px;
+    gap: var(--space-6);
     flex: 1;
     overflow-y: auto;
-    padding-right: 4px;
+    padding-right: var(--space-2);
+    min-height: 0;
 }
 
 .comment {
-    background: var(--color-surface-2);
-    padding: var(--space-4) var(--space-5);
-    border-radius: var(--radius-lg);
-    border: 1px solid var(--color-border);
+    padding: 0;
+    border: none;
+    border-radius: 0;
+    background: transparent;
+    border-left: 2px solid var(--color-border);
+    padding-left: var(--space-4);
+    margin-left: 2px;
 }
 
 .commentHeader {
     display: flex;
     justify-content: space-between;
-    align-items: center;
+    align-items: baseline;
+    gap: var(--space-3);
     margin-bottom: var(--space-1);
     font-size: var(--text-xs);
 }
@@ -422,9 +445,15 @@
 .commentAuthor {
     font-weight: 600;
     color: var(--color-text-main);
-    display: flex;
+    display: inline-flex;
     align-items: center;
-    gap: 4px;
+    gap: var(--space-1);
+}
+
+.commentAuthorIcon {
+    display: inline-flex;
+    vertical-align: middle;
+    color: var(--color-accent);
 }
 
 .botIcon {
@@ -433,16 +462,19 @@
 
 .commentDate {
     color: var(--color-text-muted);
+    font-weight: 400;
+    flex-shrink: 0;
 }
 
 .commentContent {
-    font-size: 0.875rem;
-    line-height: 1.5;
+    font-size: var(--text-sm);
+    line-height: 1.6;
     word-break: break-word;
+    color: var(--color-text-secondary);
 }
 
 .commentContent p {
-    margin: 0.5em 0;
+    margin: 0.35em 0;
 }
 
 .commentContent p:first-child {
@@ -454,16 +486,16 @@
 }
 
 .commentContent code {
-    background: rgba(var(--color-accent-rgb), 0.1);
+    background: rgba(var(--color-accent-rgb), 0.08);
     color: var(--color-accent);
-    padding: 0.2em 0.4em;
+    padding: 0.15em 0.35em;
     border-radius: var(--radius-sm);
     font-size: 0.9em;
     font-family: inherit;
 }
 
 .commentContent pre {
-    background: var(--color-surface-3);
+    background: var(--color-surface-2);
     padding: var(--space-4);
     border-radius: var(--radius-md);
     overflow-x: auto;
@@ -482,64 +514,79 @@
 
 .commentContent ul,
 .commentContent ol {
-    margin: 0.5em 0;
+    margin: 0.35em 0;
     padding-left: 1.25em;
 }
 
 .commentContent li {
-    margin: 0.25em 0;
+    margin: 0.2em 0;
 }
 
 .noComments {
-    text-align: center;
-    padding: 24px;
+    margin: 0;
+    padding: var(--space-8) 0;
     color: var(--color-text-muted);
-    font-size: 0.875rem;
-    font-style: italic;
+    font-size: var(--text-sm);
+    font-weight: 400;
+    line-height: 1.5;
 }
 
 .addComment {
     display: flex;
-    gap: 8px;
-    margin-top: 8px;
+    gap: var(--space-2);
+    flex-shrink: 0;
+    padding-top: var(--space-2);
+    border-top: 1px solid var(--color-border);
 }
 
 .commentInput {
     flex: 1;
-    background: var(--color-surface-2);
+    min-width: 0;
+    background: var(--color-surface);
     border: 1px solid var(--color-border);
-    border-radius: var(--radius-md);
+    border-radius: var(--radius-lg);
     padding: var(--space-3) var(--space-4);
     font-size: var(--text-sm);
     color: var(--color-text-primary);
     outline: none;
-    transition: all var(--transition-fast);
+    transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+}
+
+.commentInput::placeholder {
+    color: var(--color-text-muted);
 }
 
 .commentInput:focus {
     border-color: var(--color-accent);
+    box-shadow: 0 0 0 2px rgba(var(--color-accent-rgb), 0.15);
 }
 
 .sendBtn {
     background: var(--color-accent);
     color: var(--color-text-on-accent);
     border: none;
-    border-radius: 6px;
-    width: 36px;
+    border-radius: var(--radius-lg);
+    width: 40px;
+    height: 40px;
     display: flex;
     align-items: center;
     justify-content: center;
     cursor: pointer;
-    transition: opacity var(--transition-fast);
+    transition: opacity var(--transition-fast), transform var(--transition-fast);
+    flex-shrink: 0;
 }
 
 .sendBtn:disabled {
-    opacity: 0.5;
+    opacity: 0.4;
     cursor: not-allowed;
 }
 
 .sendBtn:not(:disabled):hover {
-    opacity: 0.9;
+    opacity: 0.92;
+}
+
+.sendBtn:not(:disabled):active {
+    transform: scale(0.97);
 }
 
 /* Agent History Styles */

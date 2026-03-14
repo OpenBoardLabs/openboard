@@ -453,37 +453,37 @@ export function TicketModal({ ticket, columnId, onClose }: TicketModalProps) {
                             {/* Comments Section */}
                             {ticket && (
                                 <div className={styles.commentsSection}>
-                                    <div className={styles.sectionLabel} style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                        <MessageSquare size={14} />
+                                    <h3 className={styles.commentsTitle}>
+                                        <MessageSquare size={16} />
                                         {t('ticket.comments' as any)}
-                                    </div>
+                                    </h3>
 
                                     <div className={styles.commentList}>
+                                        {ticketComments.length === 0 && (
+                                            <p className={styles.noComments}>{t('ticket.no_comments' as any)}</p>
+                                        )}
                                         {ticketComments.map(c => (
-                                            <div key={c.id} className={styles.comment}>
-                                                <div className={styles.commentHeader}>
+                                            <article key={c.id} className={styles.comment}>
+                                                <header className={styles.commentHeader}>
                                                     <span className={styles.commentAuthor}>
                                                         {c.author === 'user' ? 'You' : (
                                                             <>
-                                                                <span style={{ marginRight: '4px', display: 'inline-flex', verticalAlign: 'middle' }}>
+                                                                <span className={styles.commentAuthorIcon}>
                                                                     {getAgentConfigByAuthor(c.author).icon}
                                                                 </span>
                                                                 {c.author}
                                                             </>
                                                         )}
                                                     </span>
-                                                    <span className={styles.commentDate}>
+                                                    <time className={styles.commentDate} dateTime={c.created_at}>
                                                         {new Date(c.created_at).toLocaleString()}
-                                                    </span>
-                                                </div>
+                                                    </time>
+                                                </header>
                                                 <div className={styles.commentContent}>
                                                     <ReactMarkdown>{c.content}</ReactMarkdown>
                                                 </div>
-                                            </div>
+                                            </article>
                                         ))}
-                                        {ticketComments.length === 0 && (
-                                            <div className={styles.noComments}>{t('ticket.no_comments' as any)}</div>
-                                        )}
                                         <div ref={commentsEndRef} />
                                     </div>
 
@@ -495,13 +495,16 @@ export function TicketModal({ ticket, columnId, onClose }: TicketModalProps) {
                                             onChange={e => setNewComment(e.target.value)}
                                             onKeyDown={e => e.key === 'Enter' && handleAddComment()}
                                             placeholder={t('ticket.add_comment_placeholder' as any)}
+                                            aria-label={t('ticket.add_comment_placeholder' as any)}
                                         />
                                         <button
+                                            type="button"
                                             className={styles.sendBtn}
                                             onClick={handleAddComment}
                                             disabled={!newComment.trim()}
+                                            aria-label={t('action.send' as any) || 'Send'}
                                         >
-                                            <Send size={14} />
+                                            <Send size={16} />
                                         </button>
                                     </div>
                                 </div>
