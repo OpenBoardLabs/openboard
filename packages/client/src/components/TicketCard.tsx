@@ -1,12 +1,13 @@
-import React from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import type { Ticket } from '../types';
 import { PriorityBadge } from './PriorityBadge';
 import styles from './TicketCard.module.css';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { CheckCircle, ExternalLink, GitPullRequest, Copy } from 'lucide-react';
+import { CheckCircle, ExternalLink, GitPullRequest, Copy, ChevronDown, GitBranch, RotateCcw, Eye } from 'lucide-react';
 import { getAgentConfig } from '../constants/agents';
+import { DiffPanel } from './DiffPanel';
 
 interface TicketCardProps {
     ticket: Ticket;
@@ -37,6 +38,43 @@ export function TicketCard({ ticket, isOverlay }: TicketCardProps) {
     const prSession = [...(ticket.agent_sessions ?? [])].reverse().find(s => s.pr_url);
     const worktreeSession = [...(ticket.agent_sessions ?? [])].reverse().find(s => s.worktree_path);
 
+    const [isWorktreeOpen, setIsWorktreeOpen] = useState(false);
+    const [isMerging, setIsMerging] = useState(false);
+    const [isDiffOpen, setIsDiffOpen] = useState(false);
+    const worktreeRef = useRef<HTMLDivElement>(null);
+
+    useEffect(() => {
+        const handleClickOutside = (event: MouseEvent) => {
+            if (worktreeRef.current && !worktreeRef.current.contains(event.target as Node)) {
+                setIsWorktreeOpen(false);
+            }
+        };
+        document.addEventListener('mousedown', handleClickOutside);
+        return () => document.removeEventListener('mousedown', handleClickOutside);
+    }, []);
+
+    const handleMerge = async (e: React.MouseEvent) => {
+        e.stopPropagation();
+        if (isMerging || worktreeSession?.merged) return;
+
+        setIsMerging(true);
+        try {
+            const response = await fetch(`/api/boards/${boardId}/tickets/${ticket.id}/merge`, {
+                method: 'POST',
+            });
+            if (!response.ok) {
+                const data = await response.json();
+                alert(`Failed to merge: ${data.error}`);
+            }
+        } catch (err) {
+            console.error('Merge error:', err);
+            alert('Failed to send merge request');
+        } finally {
+            setIsMerging(false);
+            setIsWorktreeOpen(false);
+        }
+    };
+
     return (
         <div
             ref={setNodeRef}
@@ -64,21 +102,70 @@ export function TicketCard({ ticket, isOverlay }: TicketCardProps) {
                         </a>
                     )}
                     {worktreeSession?.worktree_path && (
-                        <button
-                            className={`${styles.inspectBtn} ${styles.worktreeBtn}`}
-                            title="Copy Worktree Path"
-                            onClick={(e) => {
-                                e.stopPropagation();
-                                navigator.clipboard.writeText(worktreeSession.worktree_path!);
-                                // Optional: add a temporary "Copied!" state or toast
-                            }}
-                        >
-                            <Copy size={14} />
-                            <span>Worktree</span>
-                        </button>
+                        <div className={styles.dropdown} ref={worktreeRef}>
+                            <button
+                                className={`${styles.inspectBtn} ${styles.worktreeBtn}`}
+                                title="Worktree Actions"
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    setIsWorktreeOpen(!isWorktreeOpen);
+                                }}
+                            >
+                                <Copy size={14} />
+                                <span>Worktree</span>
+                                <ChevronDown size={12} />
+                            </button>
+                            {isWorktreeOpen && (
+                                <div className={styles.dropdownMenu} onClick={(e) => e.stopPropagation()}>
+                                    <button
+                                        className={styles.dropdownItem}
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            navigator.clipboard.writeText(worktreeSession.worktree_path!);
+                                            setIsWorktreeOpen(false);
+                                        }}
+                                    >
+                                        <Copy size={14} className={styles.dropdownIcon} />
+                                        <span>Copy Path</span>
+                                    </button>
+                                    <div className={styles.dropdownItemSeparator} />
+                                    <button
+                                        className={styles.dropdownItem}
+                                        onClick={handleMerge}
+                                        disabled={isMerging || worktreeSession.merged}
+                                        style={(isMerging || worktreeSession.merged) ? { opacity: 0.5, cursor: 'not-allowed' } : {}}
+                                    >
+                                        {isMerging ? (
+                                            <RotateCcw size={14} className={styles.processingIcon} />
+                                        ) : (
+                                            <GitBranch size={14} className={styles.dropdownIcon} />
+                                        )}
+                                        <span>{worktreeSession.merged ? 'Already merged' : isMerging ? 'Merging...' : 'Merge into master'}</span>
+                                    </button>
+                                    <div className={styles.dropdownItemSeparator} />
+                                    <button
+                                        className={styles.dropdownItem}
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            setIsDiffOpen(true);
+                                            setIsWorktreeOpen(false);
+                                        }}
+                                    >
+                                        <Eye size={14} className={styles.dropdownIcon} />
+                                        <span>Check diff</span>
+                                    </button>
+                                </div>
+                            )}
+                        </div>
                     )}
                 </div>
             )}
+            <DiffPanel
+                isOpen={isDiffOpen}
+                onClose={() => setIsDiffOpen(false)}
+                boardId={boardId!}
+                ticket={ticket}
+            />
             <p className={`${styles.title} ${prSession ? styles.titleWithPr : ''}`}>{ticket.title}</p>
             {ticket.description && (
                 <p className={styles.description}>{ticket.description}</p>

@@ -39,6 +39,7 @@ export interface AgentSession {
     total_cost?: number;
     started_at: string;
     finished_at?: string;
+    merged?: boolean;
 }
 
 export interface Ticket {

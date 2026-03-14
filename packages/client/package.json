@@ -13,7 +13,10 @@
         "@dnd-kit/sortable": "^8.0.0",
         "@dnd-kit/utilities": "^3.2.2",
         "lucide-react": "^0.344.0",
+        "parse-diff": "^0.11.1",
         "react": "^18.3.1",
+        "react-diff-view": "^3.3.2",
+        "react-diff-viewer-continued": "^4.2.0",
         "react-dom": "^18.3.1",
         "react-markdown": "^9.0.1"
     },

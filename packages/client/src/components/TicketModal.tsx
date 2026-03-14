@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import ReactMarkdown from 'react-markdown';
 import { t } from '../i18n/i18n';
 import { useApp } from '../store/AppContext';
@@ -7,8 +7,10 @@ import { PRIORITIES } from '../constants';
 import { PriorityBadge } from './PriorityBadge';
 import { ConfirmDialog } from './ConfirmDialog';
 import styles from './TicketModal.module.css';
-import { X, Trash2, MessageSquare, Send, CheckCircle, ExternalLink, RotateCcw, GitPullRequest, Copy } from 'lucide-react';
+import { X, Trash2, MessageSquare, Send, CheckCircle, ExternalLink, RotateCcw, GitPullRequest, Copy, ChevronDown, GitBranch, Eye } from 'lucide-react';
 import { getAgentConfig, getAgentConfigByAuthor } from '../constants/agents';
+import { DiffPanel } from './DiffPanel';
+import { useParams } from 'react-router-dom';
 
 interface TicketModalProps {
     ticket?: Ticket;
@@ -17,6 +19,7 @@ interface TicketModalProps {
 }
 
 export function TicketModal({ ticket, columnId, onClose }: TicketModalProps) {
+    const { boardId } = useParams();
     const { state, updateTicket, deleteTicket, createTicket: apiCreateTicket, retryTicket } = useApp();
     const [title, setTitle] = useState(ticket?.title ?? '');
     const [description, setDescription] = useState(ticket?.description ?? '');
@@ -26,6 +29,46 @@ export function TicketModal({ ticket, columnId, onClose }: TicketModalProps) {
     const [newComment, setNewComment] = useState('');
     const { state: { comments }, loadComments, addComment } = useApp();
     const ticketComments = ticket ? (comments[ticket.id] ?? []) : [];
+
+    const [isWorktreeOpen, setIsWorktreeOpen] = useState(false);
+    const [isMerging, setIsMerging] = useState(false);
+    const [isDiffOpen, setIsDiffOpen] = useState(false);
+    const worktreeRef = useRef<HTMLDivElement>(null);
+
+    useEffect(() => {
+        const handleClickOutside = (event: MouseEvent) => {
+            if (worktreeRef.current && !worktreeRef.current.contains(event.target as Node)) {
+                setIsWorktreeOpen(false);
+            }
+        };
+        document.addEventListener('mousedown', handleClickOutside);
+        return () => document.removeEventListener('mousedown', handleClickOutside);
+    }, []);
+
+    const handleMerge = async () => {
+        if (!ticket || isMerging) return;
+        
+        // Find latest worktree session to check if already merged
+        const worktreeSession = [...(ticket.agent_sessions ?? [])].reverse().find(s => s.worktree_path);
+        if (worktreeSession?.merged) return;
+
+        setIsMerging(true);
+        try {
+            const response = await fetch(`/api/boards/${ticket.board_id}/tickets/${ticket.id}/merge`, {
+                method: 'POST',
+            });
+            if (!response.ok) {
+                const data = await response.json();
+                alert(`Failed to merge: ${data.error}`);
+            }
+        } catch (err) {
+            console.error('Merge error:', err);
+            alert('Failed to send merge request');
+        } finally {
+            setIsMerging(false);
+            setIsWorktreeOpen(false);
+        }
+    };
 
     useEffect(() => {
         if (ticket) {
@@ -197,14 +240,56 @@ export function TicketModal({ ticket, columnId, onClose }: TicketModalProps) {
                                         </a>
                                     )}
                                     {worktreeSession?.worktree_path && (
-                                        <button
-                                            className={styles.sessionBtn}
-                                            title="Copy Worktree Path"
-                                            onClick={() => navigator.clipboard.writeText(worktreeSession!.worktree_path!)}
-                                        >
-                                            <Copy size={14} />
-                                            <span>Worktree</span>
-                                        </button>
+                                        <div className={styles.dropdown} ref={worktreeRef}>
+                                            <button
+                                                className={styles.sessionBtn}
+                                                title="Worktree Actions"
+                                                onClick={() => setIsWorktreeOpen(!isWorktreeOpen)}
+                                            >
+                                                <Copy size={14} />
+                                                <span>Worktree</span>
+                                                <ChevronDown size={12} />
+                                            </button>
+                                            {isWorktreeOpen && (
+                                                <div className={styles.dropdownMenu}>
+                                                    <button
+                                                        className={styles.dropdownItem}
+                                                        onClick={() => {
+                                                            navigator.clipboard.writeText(worktreeSession.worktree_path!);
+                                                            setIsWorktreeOpen(false);
+                                                        }}
+                                                    >
+                                                        <Copy size={14} className={styles.dropdownIcon} />
+                                                        <span>Copy Path</span>
+                                                    </button>
+                                                    <div className={styles.dropdownItemSeparator} />
+                                                    <button
+                                                        className={styles.dropdownItem}
+                                                        onClick={handleMerge}
+                                                        disabled={isMerging || worktreeSession.merged}
+                                                        style={(isMerging || worktreeSession.merged) ? { opacity: 0.5, cursor: 'not-allowed' } : {}}
+                                                    >
+                                                        {isMerging ? (
+                                                            <RotateCcw size={14} className={styles.processingIcon} />
+                                                        ) : (
+                                                            <GitBranch size={14} className={styles.dropdownIcon} />
+                                                        )}
+                                                        <span>{worktreeSession.merged ? 'Already merged' : isMerging ? 'Merging...' : 'Merge into master'}</span>
+                                                    </button>
+                                                    <div className={styles.dropdownItemSeparator} />
+                                                    <button
+                                                        className={styles.dropdownItem}
+                                                        onClick={() => {
+                                                            setIsDiffOpen(true);
+                                                            setIsWorktreeOpen(false);
+                                                        }}
+                                                    >
+                                                        <Eye size={14} className={styles.dropdownIcon} />
+                                                        <span>Check diff</span>
+                                                    </button>
+                                                </div>
+                                            )}
+                                        </div>
                                     )}
                                 </React.Fragment>
                             );
@@ -404,6 +489,12 @@ export function TicketModal({ ticket, columnId, onClose }: TicketModalProps) {
                         onCancel={() => setConfirming(false)}
                     />
                 )}
+                <DiffPanel
+                    isOpen={isDiffOpen}
+                    onClose={() => setIsDiffOpen(false)}
+                    boardId={boardId || ticket?.board_id || ''}
+                    ticket={ticket}
+                />
             </div>
         </div>
     );
