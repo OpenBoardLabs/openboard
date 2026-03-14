@@ -53,7 +53,7 @@ export function TicketModal({ ticket, columnId, onClose }: TicketModalProps) {
 
     const handleMerge = async () => {
         if (!ticket || isMerging) return;
-        
+
         // Find latest worktree session to check if already merged
         const worktreeSession = [...(ticket.agent_sessions ?? [])].reverse().find(s => s.worktree_path);
         if (worktreeSession?.merged) return;
@@ -119,11 +119,11 @@ export function TicketModal({ ticket, columnId, onClose }: TicketModalProps) {
         await addComment(ticket.board_id, ticket.id, newComment.trim(), 'user');
         setNewComment('');
     }
-    
+
     const handleSessionClick = async (e: React.MouseEvent, sessionIndex: number) => {
         if (!ticket) return;
         e.preventDefault();
-        
+
         try {
             const { url } = await ticketsApi.resumeSession(ticket.board_id, ticket.id, sessionIndex);
             window.open(url, '_blank', 'noopener,noreferrer');
@@ -194,7 +194,7 @@ export function TicketModal({ ticket, columnId, onClose }: TicketModalProps) {
                     <div className={styles.headerRight}>
                         {/* Action buttons mapped from session history */}
                         {(() => {
-                             if (!ticket?.agent_sessions || ticket.agent_sessions.length === 0) return null;
+                            if (!ticket?.agent_sessions || ticket.agent_sessions.length === 0) return null;
                             let activeSession = null;
                             let activeSessionIndex = -1;
                             for (let i = ticket.agent_sessions.length - 1; i >= 0; i--) {
@@ -265,9 +265,10 @@ export function TicketModal({ ticket, columnId, onClose }: TicketModalProps) {
                                                 className={styles.sessionBtn}
                                                 title="Worktree Actions"
                                                 onClick={() => setIsWorktreeOpen(!isWorktreeOpen)}
+                                                style={worktreeSession.merged ? { backgroundColor: '#2da44e', color: 'white', borderColor: '#2da44e' } : {}}
                                             >
-                                                <GitBranch size={14} />
-                                                <span>Worktree</span>
+                                                {worktreeSession.merged ? <CheckCircle size={14} /> : <GitBranch size={14} />}
+                                                <span>{worktreeSession.merged ? 'Merged' : 'Worktree'}</span>
                                                 <ChevronDown size={12} />
                                             </button>
                                             <DropdownPortal
