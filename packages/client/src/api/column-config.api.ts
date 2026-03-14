@@ -20,7 +20,7 @@ export const columnConfigApi = {
         request<ColumnConfig[]>(`/boards/${boardId}/columns/configs`),
     getConfig: (boardId: string, columnId: string) =>
         request<ColumnConfig | null>(`/boards/${boardId}/columns/${columnId}/config`),
-    upsert: (boardId: string, columnId: string, data: { agentType: AgentType; agentModel?: string | null; maxAgents?: number; onFinishColumnId?: string | null; onRejectColumnId?: string | null }) =>
+    upsert: (boardId: string, columnId: string, data: { agentType: AgentType; maxAgents?: number; onFinishColumnId?: string | null; onRejectColumnId?: string | null }) =>
         request<ColumnConfig>(`/boards/${boardId}/columns/${columnId}/config`, {
             method: 'PUT',
             body: JSON.stringify(data),

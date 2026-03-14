@@ -24,9 +24,8 @@ router.get('/:id/config', (req: Request, res: Response) => {
 
 // PUT /api/boards/:boardId/columns/:id/config
 router.put('/:id/config', (req: Request, res: Response) => {
-    const { agentType, agentModel, maxAgents, onFinishColumnId, onRejectColumnId } = req.body as {
+    const { agentType, maxAgents, onFinishColumnId, onRejectColumnId } = req.body as {
         agentType: AgentType;
-        agentModel?: string | null;
         maxAgents?: number;
         onFinishColumnId?: string | null;
         onRejectColumnId?: string | null;
@@ -38,7 +37,6 @@ router.put('/:id/config', (req: Request, res: Response) => {
     const config = columnConfigRepository.upsert({
         columnId: req.params.id,
         agentType,
-        agentModel,
         maxAgents,
         onFinishColumnId,
         onRejectColumnId,

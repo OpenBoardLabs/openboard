@@ -16,7 +16,6 @@ export function ColumnConfigModal({ column, boardId, onClose }: ColumnConfigModa
     const config = columnConfigs.find(c => c.column_id === column.id);
 
     const [agentType, setAgentType] = useState<AgentType>(config?.agent_type ?? 'none');
-    const [agentModel, setAgentModel] = useState(config?.agent_model ?? 'gpt-4o');
     const [maxAgents, setMaxAgents] = useState(config?.max_agents ?? 1);
     const [onFinishColumnId, setOnFinishColumnId] = useState<string>(config?.on_finish_column_id ?? '');
     const [onRejectColumnId, setOnRejectColumnId] = useState<string>(config?.on_reject_column_id ?? '');
@@ -26,12 +25,11 @@ export function ColumnConfigModal({ column, boardId, onClose }: ColumnConfigModa
     useEffect(() => {
         setIsDirty(
             agentType !== (config?.agent_type ?? 'none') ||
-            agentModel !== (config?.agent_model ?? 'gpt-4o') ||
             maxAgents !== (config?.max_agents ?? 1) ||
             onFinishColumnId !== (config?.on_finish_column_id ?? '') ||
             onRejectColumnId !== (config?.on_reject_column_id ?? '')
         );
-    }, [agentType, agentModel, maxAgents, onFinishColumnId, onRejectColumnId, config]);
+    }, [agentType, maxAgents, onFinishColumnId, onRejectColumnId, config]);
 
     useEffect(() => {
         function handleKey(e: KeyboardEvent) {
@@ -47,7 +45,6 @@ export function ColumnConfigModal({ column, boardId, onClose }: ColumnConfigModa
         } else {
             await updateColumnConfig(boardId, column.id, {
                 agentType,
-                agentModel: agentType === 'opencode' ? agentModel : null,
                 maxAgents,
                 onFinishColumnId: onFinishColumnId || null,
                 onRejectColumnId: agentType === 'code_review' ? (onRejectColumnId || null) : null
@@ -83,16 +80,6 @@ export function ColumnConfigModal({ column, boardId, onClose }: ColumnConfigModa
 
                     {(agentType === 'opencode' || agentType === 'code_review') && (
                         <>
-                            <div className={styles.formGroup}>
-                                <label className={styles.label}>OpenCode Model</label>
-                                <input
-                                    type="text"
-                                    className={styles.input}
-                                    value={agentModel}
-                                    onChange={(e) => setAgentModel(e.target.value)}
-                                    placeholder="e.g. gpt-4o, claude-3-haiku"
-                                />
-                            </div>
                             <div className={styles.formGroup}>
                                 <label className={styles.label}>Max Concurrent Agents</label>
                                 <input
