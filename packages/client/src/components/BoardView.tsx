@@ -19,7 +19,6 @@ import {
     DragStartEvent,
     closestCenter,
     DragOverlay,
-    defaultDropAnimationSideEffects,
 } from '@dnd-kit/core';
 import { arrayMove, SortableContext, horizontalListSortingStrategy } from '@dnd-kit/sortable';
 import type { Ticket, Column as ColumnType } from '../types';
