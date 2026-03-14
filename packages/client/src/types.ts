@@ -32,6 +32,7 @@ export interface AgentSession {
     status: 'processing' | 'done' | 'blocked' | 'needs_approval';
     url?: string;
     pr_url?: string;
+    worktree_path?: string;
     port?: number;
     error_message?: string;
     total_cost?: number;
