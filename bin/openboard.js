@@ -182,15 +182,25 @@ async function main() {
         
         setTimeout(async () => {
             const currentPath = process.cwd();
+            let port = process.env.PORT;
             try {
-                const res = await fetch(`http://localhost:${process.env.PORT}/api/boards`);
+                const healthRes = await fetch(`http://localhost:${port}/api/health`);
+                if (healthRes.ok) {
+                    const healthData = await healthRes.json();
+                    port = healthData.port || port;
+                }
+            } catch (e) {
+                printWarn(`Could not get actual port from server: ${e.message}`);
+            }
+            try {
+                const res = await fetch(`http://localhost:${port}/api/boards`);
                 if (res.ok) {
                     const boards = await res.json();
                     const normalize = (p) => p.replace(/\\/g, '/').toLowerCase();
                     const board = boards.find((b) => b.path && normalize(b.path) === normalize(currentPath));
                     
                     const open = (await import('open')).default;
-                    const url = board ? `http://localhost:${process.env.PORT}/boards/${board.id}` : `http://localhost:${process.env.PORT}/`;
+                    const url = board ? `http://localhost:${port}/boards/${board.id}` : `http://localhost:${port}/`;
                     console.log(`${GREEN}[openboard]${RESET} Opening browser to ${url}`);
                     await open(url);
                 }

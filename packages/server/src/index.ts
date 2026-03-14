@@ -61,7 +61,7 @@ async function start() {
     app.use('/api/boards/:boardId/tickets', ticketsRouter);
     app.use('/api/boards/:boardId/columns', columnConfigRouter);
     app.use('/api/system', systemRouter);
-    app.get('/api/health', (_req, res) => res.json({ status: 'ok' }));
+    app.get('/api/health', (_req, res) => res.json({ status: 'ok', port: actualPort }));
 
     // Serve the built client
     const clientExtPath = path.join(__dirname, '../../client/dist');
@@ -72,10 +72,12 @@ async function start() {
     });
 
     const server = app.listen(PORT);
+    
+    let actualPort: number = parseInt(String(PORT));
 
     server.on('listening', () => {
         const address = server.address();
-        const actualPort = typeof address === 'string' ? address : address?.port;
+        actualPort = typeof address === 'string' ? parseInt(address) : (address?.port ?? parseInt(String(PORT)));
         console.log(`[openboard] Server running at http://localhost:${actualPort}`);
     });
 
