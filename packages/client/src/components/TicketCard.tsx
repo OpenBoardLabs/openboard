@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import type { Ticket } from '../types';
 import { PriorityBadge } from './PriorityBadge';
@@ -11,6 +11,7 @@ import { DiffPanel } from './DiffPanel';
 
 import { DropdownPortal } from './DropdownPortal';
 import { ticketsApi } from '../api/tickets.api';
+import { useApp } from '../store/AppContext';
 
 interface TicketCardProps {
     ticket: Ticket;
@@ -20,6 +21,17 @@ interface TicketCardProps {
 export function TicketCard({ ticket, isOverlay }: TicketCardProps) {
     const navigate = useNavigate();
     const { boardId } = useParams();
+    const { state, removeAutoMovedEffect } = useApp();
+    const isAutoMoved = state.recentlyAutoMoved.includes(ticket.id);
+
+    useEffect(() => {
+        if (isAutoMoved) {
+            const timer = setTimeout(() => {
+                removeAutoMovedEffect(ticket.id);
+            }, 2000);
+            return () => clearTimeout(timer);
+        }
+    }, [isAutoMoved, ticket.id, removeAutoMovedEffect]);
 
     const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
         id: ticket.id,
@@ -87,7 +99,7 @@ export function TicketCard({ ticket, isOverlay }: TicketCardProps) {
         <div
             ref={setNodeRef}
             style={style}
-            className={`${styles.card} ${isDragging ? styles.dragging : ''} ${hasNeedsApproval ? styles.needsApprovalCard : ''}`}
+            className={`${styles.card} ${isDragging ? styles.dragging : ''} ${hasNeedsApproval ? styles.needsApprovalCard : ''} ${isAutoMoved ? styles.autoMoved : ''}`}
             {...attributes}
             {...listeners}
             onClick={() => navigate(`/boards/${boardId}/tickets/${ticket.id}`)}

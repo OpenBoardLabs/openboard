@@ -20,6 +20,7 @@ interface AppState {
     comments: Record<string, Comment[]>; // ticketId -> comments
     loading: boolean;
     error: string | null;
+    recentlyAutoMoved: string[]; // ticket IDs that were recently auto-moved
 }
 
 const initialState: AppState = {
@@ -31,6 +32,7 @@ const initialState: AppState = {
     comments: {},
     loading: false,
     error: null,
+    recentlyAutoMoved: [],
 };
 
 // ---------------------------------------------------------------------------
@@ -58,7 +60,9 @@ type Action =
     | { type: 'UPDATE_COMMENT'; payload: { ticketId: string; comment: Comment } }
     | { type: 'SET_COLUMN_CONFIGS'; payload: ColumnConfig[] }
     | { type: 'UPDATE_COLUMN_CONFIG'; payload: ColumnConfig }
-    | { type: 'DELETE_COLUMN_CONFIG'; payload: string };
+    | { type: 'DELETE_COLUMN_CONFIG'; payload: string }
+    | { type: 'ADD_AUTO_MOVED_EFFECT'; payload: string }
+    | { type: 'REMOVE_AUTO_MOVED_EFFECT'; payload: string };
 
 // ---------------------------------------------------------------------------
 // Reducer
@@ -165,6 +169,11 @@ function reducer(state: AppState, action: Action): AppState {
         }
         case 'DELETE_COLUMN_CONFIG':
             return { ...state, columnConfigs: state.columnConfigs.filter(c => c.column_id !== action.payload) };
+        case 'ADD_AUTO_MOVED_EFFECT':
+            if (state.recentlyAutoMoved.includes(action.payload)) return state;
+            return { ...state, recentlyAutoMoved: [...state.recentlyAutoMoved, action.payload] };
+        case 'REMOVE_AUTO_MOVED_EFFECT':
+            return { ...state, recentlyAutoMoved: state.recentlyAutoMoved.filter(id => id !== action.payload) };
         default: return state;
     }
 }
@@ -194,6 +203,7 @@ interface AppContextValue {
     addComment: (boardId: string, ticketId: string, content: string, author?: string) => Promise<void>;
     updateColumnConfig: (boardId: string, columnId: string, data: { agentType: AgentType; maxAgents?: number; reviewMode?: 'pr' | 'local'; onFinishColumnId?: string | null; onRejectColumnId?: string | null }) => Promise<void>;
     deleteColumnConfig: (boardId: string, columnId: string) => Promise<void>;
+    removeAutoMovedEffect: (ticketId: string) => void;
 }
 
 const AppContext = createContext<AppContextValue | null>(null);
@@ -324,6 +334,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         dispatch({ type: 'DELETE_COLUMN_CONFIG', payload: columnId });
     }, []);
 
+    const removeAutoMovedEffect = useCallback((ticketId: string) => {
+        dispatch({ type: 'REMOVE_AUTO_MOVED_EFFECT', payload: ticketId });
+    }, []);
+
     return (
         <AppContext.Provider value={{
             state, loadBoards, loadBoardData, selectBoard,
@@ -331,6 +345,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
             createColumn, updateColumn, reorderColumns, deleteColumn,
             createTicket, updateTicket, moveTicket, deleteTicket, retryTicket,
             loadColumnConfigs, loadComments, addComment, updateColumnConfig, deleteColumnConfig,
+            removeAutoMovedEffect,
         }}>
             {children}
         </AppContext.Provider>
