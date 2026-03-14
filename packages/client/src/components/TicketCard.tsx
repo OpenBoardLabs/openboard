@@ -197,7 +197,7 @@ export function TicketCard({ ticket, isOverlay }: TicketCardProps) {
                                         setIsWorktreeOpen(!isWorktreeOpen);
                                     }}
                                 >
-                                    <Copy size={12} />
+                                    <GitBranch size={12} />
                                     <span>Worktree</span>
                                     <ChevronDown size={10} />
                                 </button>

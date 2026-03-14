@@ -266,7 +266,7 @@ export function TicketModal({ ticket, columnId, onClose }: TicketModalProps) {
                                                 title="Worktree Actions"
                                                 onClick={() => setIsWorktreeOpen(!isWorktreeOpen)}
                                             >
-                                                <Copy size={14} />
+                                                <GitBranch size={14} />
                                                 <span>Worktree</span>
                                                 <ChevronDown size={12} />
                                             </button>
