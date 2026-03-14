@@ -7,7 +7,7 @@ import { PRIORITIES } from '../constants';
 import { PriorityBadge } from './PriorityBadge';
 import { ConfirmDialog } from './ConfirmDialog';
 import styles from './TicketModal.module.css';
-import { X, Trash2, MessageSquare, Send, CheckCircle, ExternalLink, RotateCcw, GitPullRequest, Copy, ChevronDown, GitBranch, Eye } from 'lucide-react';
+import { X, Trash2, MessageSquare, Send, CheckCircle, ExternalLink, RotateCcw, GitPullRequest, Copy, ChevronDown, GitBranch, Eye, History } from 'lucide-react';
 import { getAgentConfig, getAgentConfigByAuthor } from '../constants/agents';
 import { DiffPanel } from './DiffPanel';
 import { useParams } from 'react-router-dom';
@@ -392,31 +392,39 @@ export function TicketModal({ ticket, columnId, onClose }: TicketModalProps) {
 
                             {/* Agent History */}
                             {ticket && ticket.agent_sessions && ticket.agent_sessions.length > 0 && (
-                                <div className={styles.section}>
-                                    <div className={styles.historyHeader}>
-                                        <span className={styles.sectionLabel}>
-                                            Agent History
-                                        </span>
+                                <section className={styles.agentHistorySection}>
+                                    <h3 className={styles.agentHistoryTitle}>
+                                        <History size={16} />
+                                        Agent History
                                         <span className={styles.historyTotalCost}>
                                             ${ticket.agent_sessions.reduce((sum, s) => sum + (s.total_cost || 0), 0).toFixed(2)}
                                         </span>
-                                    </div>
-                                    <div className={styles.agentHistoryList}>
+                                    </h3>
+                                    <ul className={styles.agentHistoryList}>
                                         {ticket.agent_sessions.map((session, idx) => {
                                             const colName = state.columns.find(c => c.id === session.column_id)?.name || 'Unknown Step';
+                                            const agentConfig = getAgentConfig(session.agent_type);
                                             return (
-                                                <div key={idx} className={styles.historyItem}>
-                                                    <div className={styles.historyMain}>
-                                                        <div className={styles.historyDetails}>
-                                                            <span className={styles.historyCol}>{colName}</span>
+                                                <li key={idx} className={styles.historyItem}>
+                                                    <div className={styles.historyItemInner}>
+                                                        <span className={styles.historyStepName}>{colName}</span>
+                                                        <div className={styles.historyItemMeta}>
+                                                            <span className={`${styles.historyStatus} ${styles[session.status] || ''}`}>
+                                                                {agentConfig.icon}
+                                                                <span>{session.status.replace(/_/g, ' ')}</span>
+                                                            </span>
+                                                            {session.total_cost !== undefined && session.total_cost > 0 && (
+                                                                <span className={styles.historyCost}>${session.total_cost.toFixed(2)}</span>
+                                                            )}
                                                             <div className={styles.historyLinks}>
                                                                 {(session.url || session.port) && (
                                                                     <button
+                                                                        type="button"
                                                                         onClick={(e) => handleSessionClick(e, idx)}
                                                                         className={styles.historyLink}
-                                                                        style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0, font: 'inherit' }}
                                                                     >
-                                                                        Link <ExternalLink size={12} />
+                                                                        <ExternalLink size={12} />
+                                                                        Link
                                                                     </button>
                                                                 )}
                                                                 {session.pr_url && (
@@ -425,27 +433,19 @@ export function TicketModal({ ticket, columnId, onClose }: TicketModalProps) {
                                                                         target="_blank"
                                                                         rel="noopener noreferrer"
                                                                         className={styles.historyLink}
-                                                                        style={{ color: '#2da44e' }}
                                                                     >
-                                                                        PR <GitPullRequest size={12} />
+                                                                        <GitPullRequest size={12} />
+                                                                        PR
                                                                     </a>
                                                                 )}
                                                             </div>
                                                         </div>
-                                                        <div className={styles.historyStatusAndCost}>
-                                                            <span className={`${styles.historyStatus} ${styles[session.status] || ''}`}>
-                                                                {getAgentConfig(session.agent_type).icon}
-                                                            </span>
-                                                            {session.total_cost !== undefined && session.total_cost > 0 && (
-                                                                <span className={styles.historyCost}>${session.total_cost.toFixed(2)}</span>
-                                                            )}
-                                                        </div>
                                                     </div>
-                                                </div>
+                                                </li>
                                             );
                                         })}
-                                    </div>
-                                </div>
+                                    </ul>
+                                </section>
                             )}
                         </div>
 
