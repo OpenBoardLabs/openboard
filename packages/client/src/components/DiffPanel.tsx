@@ -77,10 +77,12 @@ export function DiffPanel({ isOpen, onClose, boardId, ticket }: DiffPanelProps) 
     if (!isOpen) return null;
 
     return createPortal(
-        <div 
-            className={`${styles.panel} ${isOpen ? styles.open : ''}`}
-            onClick={(e) => e.stopPropagation()}
-        >
+        <>
+            {isOpen && <div className={styles.backdrop} onClick={onClose} />}
+            <div 
+                className={`${styles.panel} ${isOpen ? styles.open : ''}`}
+                onClick={(e) => e.stopPropagation()}
+            >
             <div className={styles.header}>
                 <div className={styles.headerLeft}>
                     <h3>Diff: {ticket.title}</h3>
@@ -167,7 +169,8 @@ export function DiffPanel({ isOpen, onClose, boardId, ticket }: DiffPanelProps) 
                     </div>
                 )}
             </div>
-        </div>,
+            </div>
+        </>,
         document.body
     );
 }
