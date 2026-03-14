@@ -22,7 +22,7 @@ const PRIORITY_WEIGHTS: Record<Priority, number> = {
 
 class AgentQueueManager {
     // Ticket IDs currently running (to prevent same ticket starting twice)
-    private runningTickets: Set<string> = new Set();
+    public runningTickets: Set<string> = new Set();
 
     // Map to prevent concurrent evaluation of the same column
     private evaluatingColumns: Set<string> = new Set();
