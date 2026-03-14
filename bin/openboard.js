@@ -175,7 +175,7 @@ async function main() {
     const __dirname = path.dirname(__filename);
 
     process.env.NODE_ENV = 'production';
-    process.env.PORT = process.env.PORT || '3001';
+    process.env.PORT = process.env.PORT || '4199';
 
     try {
         await import(path.join(__dirname, '../packages/server/dist/index.js'));
