@@ -106,6 +106,199 @@
     border-color: var(--color-accent);
 }
 
+.cardGrid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: var(--space-3);
+}
+
+.optionCard {
+    border-radius: var(--radius-lg);
+    border: 1px solid var(--color-border);
+    background: var(--color-surface-2);
+    padding: var(--space-3);
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-1);
+    align-items: flex-start;
+    justify-content: flex-start;
+    cursor: pointer;
+    text-align: left;
+    transition: border-color var(--transition-fast), box-shadow var(--transition-fast), background var(--transition-fast), transform var(--transition-fast);
+}
+
+.optionCard:hover {
+    border-color: var(--color-accent-soft, var(--color-accent));
+    box-shadow: var(--shadow-md);
+    transform: translateY(-1px);
+}
+
+.optionCardActive {
+    border-color: var(--color-accent);
+    box-shadow: 0 0 0 1px color-mix(in srgb, var(--color-accent) 40%, transparent);
+    background: radial-gradient(circle at top left, color-mix(in srgb, var(--color-accent) 12%, transparent), transparent);
+}
+
+.optionCardHeader {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+}
+
+.optionIcon {
+    width: 24px;
+    height: 24px;
+    border-radius: var(--radius-md);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--color-surface-3);
+    color: var(--color-text-primary);
+}
+
+.optionTitle {
+    font-size: var(--text-sm);
+    font-weight: 600;
+    color: var(--color-text-primary);
+}
+
+.optionSubtitle {
+    font-size: var(--text-xs);
+    color: var(--color-text-muted);
+}
+
+.flowSelectRow {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+}
+
+.flowPillCurrent {
+    align-self: flex-start;
+    padding: 4px 10px;
+    border-radius: 999px;
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    background: var(--color-surface-2);
+    color: var(--color-text-secondary);
+    border: 1px solid var(--color-border);
+}
+
+.flowArrow {
+    color: var(--color-text-muted);
+}
+
+.flowOptions {
+    display: flex;
+    flex-wrap: nowrap;
+    gap: var(--space-2);
+}
+
+.flowTarget {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 10px;
+    border-radius: 999px;
+    border: 1px solid var(--color-border);
+    background: var(--color-surface-2);
+    font-size: 11px;
+    font-weight: 500;
+    color: var(--color-text-secondary);
+    cursor: pointer;
+    transition: background var(--transition-fast), border-color var(--transition-fast), color var(--transition-fast), transform var(--transition-fast);
+}
+
+.flowTarget:hover {
+    background: var(--color-surface-3);
+    border-color: var(--color-accent-soft, var(--color-accent));
+    transform: translateY(-0.5px);
+}
+
+.flowTargetActive {
+    border-color: var(--color-accent);
+    background: color-mix(in srgb, var(--color-accent) 10%, var(--color-surface-2));
+    color: var(--color-text-primary);
+}
+
+.flowTargetDot {
+    width: 6px;
+    height: 6px;
+    border-radius: 999px;
+    background: var(--color-accent);
+}
+
+.selectPillWrapper {
+    position: relative;
+}
+
+.selectPill {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 12px;
+    border-radius: 999px;
+    border: 1px solid var(--color-border);
+    background: var(--color-surface-2);
+    font-size: 11px;
+    font-weight: 500;
+    color: var(--color-text-secondary);
+    cursor: pointer;
+    min-width: 120px;
+    justify-content: space-between;
+    transition: background var(--transition-fast), border-color var(--transition-fast), color var(--transition-fast), box-shadow var(--transition-fast);
+}
+
+.selectPill:hover {
+    background: var(--color-surface-3);
+    border-color: var(--color-accent-soft, var(--color-accent));
+    color: var(--color-text-primary);
+}
+
+.selectPillLabel {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.selectMenu {
+    position: absolute;
+    top: calc(100% + 4px);
+    right: 0;
+    min-width: 200px;
+    border-radius: var(--radius-md);
+    border: 1px solid var(--color-border);
+    background: var(--color-surface-2);
+    box-shadow: var(--shadow-lg);
+    padding: 4px 0;
+    z-index: 30;
+}
+
+.selectMenuItem {
+    width: 100%;
+    padding: 6px 10px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 11px;
+    color: var(--color-text-secondary);
+    text-align: left;
+    transition: background var(--transition-fast), color var(--transition-fast);
+}
+
+.selectMenuItem:hover {
+    background: var(--color-surface-3);
+    color: var(--color-text-primary);
+}
+
+.selectMenuSeparator {
+    height: 1px;
+    margin: 4px 0;
+    background: var(--color-border);
+}
+
 .footer {
     display: flex;
     align-items: center;

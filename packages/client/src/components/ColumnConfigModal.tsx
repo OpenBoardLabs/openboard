@@ -3,7 +3,16 @@ import { t } from '../i18n/i18n';
 import { useApp } from '../store/AppContext';
 import type { Column, AgentType } from '../types';
 import styles from './ColumnConfigModal.module.css';
-import { X, Settings } from 'lucide-react';
+import {
+    X,
+    Settings,
+    GitPullRequest,
+    GitBranch,
+    ArrowRight,
+    Ban,
+    ChevronDown
+} from 'lucide-react';
+import { getAgentConfig } from '../constants/agents';
 
 interface ColumnConfigModalProps {
     column: Column;
@@ -22,6 +31,8 @@ export function ColumnConfigModal({ column, boardId, onClose }: ColumnConfigModa
     const [onRejectColumnId, setOnRejectColumnId] = useState<string>(config?.on_reject_column_id ?? '');
 
     const [isDirty, setIsDirty] = useState(false);
+    const [isFinishSelectOpen, setIsFinishSelectOpen] = useState(false);
+    const [isRejectSelectOpen, setIsRejectSelectOpen] = useState(false);
 
     useEffect(() => {
         setIsDirty(
@@ -70,15 +81,36 @@ export function ColumnConfigModal({ column, boardId, onClose }: ColumnConfigModa
                 <div className={styles.body}>
                     <div className={styles.formGroup}>
                         <label className={styles.label}>{t('agent.type' as any)}</label>
-                        <select
-                            className={styles.select}
-                            value={agentType}
-                            onChange={(e) => setAgentType(e.target.value as AgentType)}
-                        >
-                            <option value="none">{t('agent.none' as any)}</option>
-                            <option value="opencode">OpenCode Agent</option>
-                            <option value="code_review">Code Review Agent</option>
-                        </select>
+                        <div className={styles.cardGrid}>
+                            {(['none', 'opencode', 'code_review'] as AgentType[]).map(type => {
+                                const isActive = agentType === type;
+                                const configForType = type === 'none' ? getAgentConfig('default') : getAgentConfig(type);
+                                return (
+                                    <button
+                                        key={type}
+                                        type="button"
+                                        className={`${styles.optionCard} ${isActive ? styles.optionCardActive : ''}`}
+                                        onClick={() => setAgentType(type)}
+                                    >
+                                        <div className={styles.optionCardHeader}>
+                                            <span className={styles.optionIcon}>{configForType.icon}</span>
+                                            <span className={styles.optionTitle}>
+                                                {type === 'none'
+                                                    ? t('agent.none' as any)
+                                                    : configForType.label}
+                                            </span>
+                                        </div>
+                                        <span className={styles.optionSubtitle}>
+                                            {type === 'none'
+                                                ? 'No automation for this column'
+                                                : type === 'opencode'
+                                                    ? 'Let the agent implement tickets for you'
+                                                    : 'Have an agent review code changes'}
+                                        </span>
+                                    </button>
+                                );
+                            })}
+                        </div>
                     </div>
 
                     {(agentType === 'opencode' || agentType === 'code_review') && (
@@ -97,14 +129,34 @@ export function ColumnConfigModal({ column, boardId, onClose }: ColumnConfigModa
                             {agentType === 'opencode' && (
                                 <div className={styles.formGroup}>
                                     <label className={styles.label}>Review Mode</label>
-                                    <select
-                                        className={styles.select}
-                                        value={reviewMode}
-                                        onChange={(e) => setReviewMode(e.target.value as 'pr' | 'local')}
-                                    >
-                                        <option value="pr">PR Review (GitHub)</option>
-                                        <option value="local">Local Review (Worktree)</option>
-                                    </select>
+                                    <div className={styles.cardGrid}>
+                                        {(['pr', 'local'] as ('pr' | 'local')[]).map(mode => {
+                                            const isActive = reviewMode === mode;
+                                            const Icon = mode === 'pr' ? GitPullRequest : GitBranch;
+                                            return (
+                                                <button
+                                                    key={mode}
+                                                    type="button"
+                                                    className={`${styles.optionCard} ${isActive ? styles.optionCardActive : ''}`}
+                                                    onClick={() => setReviewMode(mode)}
+                                                >
+                                                    <div className={styles.optionCardHeader}>
+                                                        <span className={styles.optionIcon}>
+                                                            <Icon size={16} />
+                                                        </span>
+                                                        <span className={styles.optionTitle}>
+                                                            {mode === 'pr' ? 'PR Review' : 'Local Worktree'}
+                                                        </span>
+                                                    </div>
+                                                    <span className={styles.optionSubtitle}>
+                                                        {mode === 'pr'
+                                                            ? 'Open a GitHub PR and review changes there'
+                                                            : 'Review and merge from a local worktree'}
+                                                    </span>
+                                                </button>
+                                            );
+                                        })}
+                                    </div>
                                 </div>
                             )}
                         </>
@@ -112,33 +164,113 @@ export function ColumnConfigModal({ column, boardId, onClose }: ColumnConfigModa
 
                     {agentType !== 'none' && (
                         <div className={styles.formGroup}>
-                            <label className={styles.label}>On Finish Move To</label>
-                            <select
-                                className={styles.select}
-                                value={onFinishColumnId}
-                                onChange={(e) => setOnFinishColumnId(e.target.value)}
-                            >
-                                <option value="">{t('agent.do_nothing' as any)}</option>
-                                {columns.filter(c => c.id !== column.id).map(c => (
-                                    <option key={c.id} value={c.id}>{t('agent.move_to' as any)} {c.name}</option>
-                                ))}
-                            </select>
+                            <label className={styles.label}>On Finish</label>
+                            <div className={styles.flowSelectRow}>
+                                <span className={styles.flowPillCurrent}>{column.name}</span>
+                                <ArrowRight size={14} className={styles.flowArrow} />
+                                <div className={styles.selectPillWrapper}>
+                                    <button
+                                        type="button"
+                                        className={styles.selectPill}
+                                        onClick={() => setIsFinishSelectOpen(!isFinishSelectOpen)}
+                                    >
+                                        <span className={styles.selectPillLabel}>
+                                            {onFinishColumnId === ''
+                                                ? t('agent.do_nothing' as any)
+                                                : columns.find(c => c.id === onFinishColumnId)?.name || ''}
+                                        </span>
+                                        <ChevronDown size={14} />
+                                    </button>
+                                    {isFinishSelectOpen && (
+                                        <div className={styles.selectMenu}>
+                                            <button
+                                                type="button"
+                                                className={styles.selectMenuItem}
+                                                onClick={() => {
+                                                    setOnFinishColumnId('');
+                                                    setIsFinishSelectOpen(false);
+                                                }}
+                                            >
+                                                <Ban size={14} />
+                                                <span>{t('agent.do_nothing' as any)}</span>
+                                            </button>
+                                            <div className={styles.selectMenuSeparator} />
+                                            {columns
+                                                .filter(c => c.id !== column.id)
+                                                .map(c => (
+                                                    <button
+                                                        key={c.id}
+                                                        type="button"
+                                                        className={styles.selectMenuItem}
+                                                        onClick={() => {
+                                                            setOnFinishColumnId(c.id);
+                                                            setIsFinishSelectOpen(false);
+                                                        }}
+                                                    >
+                                                        <span className={styles.flowTargetDot} />
+                                                        <span>{c.name}</span>
+                                                    </button>
+                                                ))}
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
                         </div>
                     )}
 
                     {agentType === 'code_review' && (
                         <div className={styles.formGroup}>
-                            <label className={styles.label}>On Reject Move To</label>
-                            <select
-                                className={styles.select}
-                                value={onRejectColumnId}
-                                onChange={(e) => setOnRejectColumnId(e.target.value)}
-                            >
-                                <option value="">{t('agent.do_nothing' as any)}</option>
-                                {columns.filter(c => c.id !== column.id).map(c => (
-                                    <option key={c.id} value={c.id}>{t('agent.move_to' as any)} {c.name}</option>
-                                ))}
-                            </select>
+                            <label className={styles.label}>On Reject</label>
+                            <div className={styles.flowSelectRow}>
+                                <span className={styles.flowPillCurrent}>{column.name}</span>
+                                <ArrowRight size={14} className={styles.flowArrow} />
+                                <div className={styles.selectPillWrapper}>
+                                    <button
+                                        type="button"
+                                        className={styles.selectPill}
+                                        onClick={() => setIsRejectSelectOpen(!isRejectSelectOpen)}
+                                    >
+                                        <span className={styles.selectPillLabel}>
+                                            {onRejectColumnId === ''
+                                                ? t('agent.do_nothing' as any)
+                                                : columns.find(c => c.id === onRejectColumnId)?.name || ''}
+                                        </span>
+                                        <ChevronDown size={14} />
+                                    </button>
+                                    {isRejectSelectOpen && (
+                                        <div className={styles.selectMenu}>
+                                            <button
+                                                type="button"
+                                                className={styles.selectMenuItem}
+                                                onClick={() => {
+                                                    setOnRejectColumnId('');
+                                                    setIsRejectSelectOpen(false);
+                                                }}
+                                            >
+                                                <Ban size={14} />
+                                                <span>{t('agent.do_nothing' as any)}</span>
+                                            </button>
+                                            <div className={styles.selectMenuSeparator} />
+                                            {columns
+                                                .filter(c => c.id !== column.id)
+                                                .map(c => (
+                                                    <button
+                                                        key={c.id}
+                                                        type="button"
+                                                        className={styles.selectMenuItem}
+                                                        onClick={() => {
+                                                            setOnRejectColumnId(c.id);
+                                                            setIsRejectSelectOpen(false);
+                                                        }}
+                                                    >
+                                                        <span className={styles.flowTargetDot} />
+                                                        <span>{c.name}</span>
+                                                    </button>
+                                                ))}
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
                         </div>
                     )}
                 </div>
