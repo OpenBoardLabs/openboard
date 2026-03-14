@@ -321,7 +321,7 @@ export function TicketModal({ ticket, columnId, onClose }: TicketModalProps) {
                 </div>
 
                 <div className={styles.content}>
-                    <div className={styles.grid}>
+                    <div className={`${styles.grid} ${!ticket ? styles.single : ''}`}>
                         <div className={styles.leftColumn}>
                             <div className={styles.body}>
                                 {/* Title */}
