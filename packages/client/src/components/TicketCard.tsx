@@ -5,7 +5,7 @@ import { PriorityBadge } from './PriorityBadge';
 import styles from './TicketCard.module.css';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { CheckCircle, ExternalLink, GitPullRequest } from 'lucide-react';
+import { CheckCircle, ExternalLink, GitPullRequest, Copy } from 'lucide-react';
 import { getAgentConfig } from '../constants/agents';
 
 interface TicketCardProps {
@@ -59,6 +59,21 @@ export function TicketCard({ ticket, isOverlay }: TicketCardProps) {
                     <span>PR</span>
                     <ExternalLink size={12} />
                 </a>
+            )}
+            {/* Show worktree button when PR creation failed */}
+            {activeColumnSession?.status === 'blocked' && activeColumnSession?.error_message?.includes('PR creation failed') && activeColumnSession?.worktree_path && (
+                <button
+                    className={`${styles.inspectBtn} ${styles.prButtonOverlay}`}
+                    style={{ backgroundColor: '#6e7681', color: 'white', borderColor: '#6e7681' }}
+                    title="Copy Worktree Path"
+                    onClick={(e) => {
+                        e.stopPropagation();
+                        navigator.clipboard.writeText(activeColumnSession.worktree_path!);
+                    }}
+                >
+                    <Copy size={14} />
+                    <span>Worktree</span>
+                </button>
             )}
             <p className={`${styles.title} ${prSession ? styles.titleWithPr : ''}`}>{ticket.title}</p>
             {ticket.description && (

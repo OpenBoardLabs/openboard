@@ -344,7 +344,7 @@ export async function setupOpencodeEventListener(
                             }
                         } catch (error: any) {
                             console.error(`[opencode-agent] Failed to create PR for ticket ${ticket.id}`, error);
-                            updateSessionComment(`❌ **Failed to Create PR**\n\nThe agent finished the task, but an error occurred while pushing changes or creating the PR:\n\`\`\`\n${error.message}\n\`\`\``, 'status');
+                            updateSessionComment(`❌ **Failed to Create PR**\n\nThe agent finished the task, but an error occurred while pushing changes or creating the PR:\n\`\`\`\n${error.message}\n\`\`\`\n\nYou can review the changes locally at: ${worktreePath}`, 'status');
 
                             // Mark as blocked due to PR failure
                             ticketRepository.updateAgentSession(ticket.id, {
@@ -353,6 +353,7 @@ export async function setupOpencodeEventListener(
                                 status: 'blocked',
                                 port: 4096,
                                 url: agentUrl,
+                                worktree_path: worktreePath,
                                 error_message: `PR creation failed: ${error.message}`
                             });
                         }
