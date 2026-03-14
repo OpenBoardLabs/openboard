@@ -217,6 +217,29 @@ export const ticketRepository = {
         return savedTicket;
     },
 
+    updateAgentSessionByIndex(
+        id: string,
+        index: number,
+        sessionData: Partial<Ticket['agent_sessions'][0]>
+    ): Ticket | undefined {
+        const ticket = this.findById(id);
+        if (!ticket || !ticket.agent_sessions[index]) return undefined;
+
+        const sessions = [...ticket.agent_sessions];
+        sessions[index] = { ...sessions[index], ...sessionData };
+
+        const updated_at = new Date().toISOString();
+        getDb()
+            .prepare('UPDATE tickets SET agent_sessions = ?, updated_at = ? WHERE id = ?')
+            .run(JSON.stringify(sessions), updated_at, id);
+
+        const savedTicket = this.findById(id);
+        if (savedTicket) {
+            sseManager.emit(savedTicket.board_id, 'ticket:updated', savedTicket);
+        }
+        return savedTicket;
+    },
+
     delete(id: string): void {
         getDb().prepare('DELETE FROM tickets WHERE id = ?').run(id);
     },

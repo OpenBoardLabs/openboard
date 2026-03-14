@@ -36,4 +36,6 @@ export const ticketsApi = {
         request<void>(`/boards/${boardId}/tickets/${id}`, { method: 'DELETE' }),
     retry: (boardId: string, id: string) =>
         request<void>(`/boards/${boardId}/tickets/${id}/retry`, { method: 'POST' }),
+    resumeSession: (boardId: string, ticketId: string, sessionIndex: number) =>
+        request<{ url: string }>(`/boards/${boardId}/tickets/${ticketId}/sessions/${sessionIndex}/resume`, { method: 'POST' }),
 };

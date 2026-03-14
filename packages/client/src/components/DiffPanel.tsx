@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
+import { createPortal } from 'react-dom';
 import { X, Loader2, FileCode, GitBranch, RotateCcw } from 'lucide-react';
 import { parseDiff, Diff, Hunk } from 'react-diff-view';
 import 'react-diff-view/style/index.css';
@@ -75,7 +76,7 @@ export function DiffPanel({ isOpen, onClose, boardId, ticket }: DiffPanelProps) 
 
     if (!isOpen) return null;
 
-    return (
+    return createPortal(
         <div 
             className={`${styles.panel} ${isOpen ? styles.open : ''}`}
             onClick={(e) => e.stopPropagation()}
@@ -166,6 +167,7 @@ export function DiffPanel({ isOpen, onClose, boardId, ticket }: DiffPanelProps) 
                     </div>
                 )}
             </div>
-        </div>
+        </div>,
+        document.body
     );
 }

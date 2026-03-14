@@ -8,7 +8,7 @@ import { ColumnConfigModal } from './ColumnConfigModal';
 import { InlineEdit } from './InlineEdit';
 import { ConfirmDialog } from './ConfirmDialog';
 import styles from './Column.module.css';
-import { Plus, MoreHorizontal, Pencil, Trash2, Settings, Bot } from 'lucide-react';
+import { Plus, MoreHorizontal, Pencil, Trash2, Bot } from 'lucide-react';
 import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { useDroppable } from '@dnd-kit/core';
 
@@ -48,16 +48,20 @@ export function Column({ column, tickets, boardId }: ColumnProps) {
                     />
                 ) : (
                     <div className={styles.headerRow}>
-                        <span className={styles.name}>{column.name}</span>
-                        <div className={styles.count}>{tickets.length}</div>
+                        <div className={styles.nameAndCount}>
+                            <span className={styles.name}>{column.name}</span>
+                            <div className={styles.count}>{tickets.length}</div>
+                        </div>
                         <div className={styles.headerActions}>
-                            {config && (
-                                <div title={`${t('agent.type' as any)}: ${config.agent_type}`}>
-                                    <Bot size={14} className={styles.botIcon} />
-                                </div>
-                            )}
-                            <button className={styles.iconBtn} onClick={() => setSettingsOpen(o => !o)}>
-                                <Settings size={14} />
+                            <button className={styles.iconBtn} onClick={handleAddClick} title={t('column.add_ticket')}>
+                                <Plus size={14} />
+                            </button>
+                            <button 
+                                className={`${styles.iconBtn} ${config ? styles.botActive : ''}`} 
+                                onClick={() => setSettingsOpen(o => !o)}
+                                title={config ? `${t('agent.type' as any)}: ${config.agent_type}` : t('board.edit')}
+                            >
+                                <Bot size={14} className={config ? styles.botIconAnimated : ''} />
                             </button>
                             <button className={styles.iconBtn} onClick={() => setMenuOpen(o => !o)}>
                                 <MoreHorizontal size={14} />
@@ -97,11 +101,7 @@ export function Column({ column, tickets, boardId }: ColumnProps) {
                 )}
             </div>
 
-            {/* Footer */}
-            <button className={styles.addBtn} onClick={handleAddClick}>
-                <Plus size={13} />
-                {t('column.add_ticket')}
-            </button>
+            {/* Footer - No add button anymore */}
 
             {isAddingTicket && (
                 <TicketModal

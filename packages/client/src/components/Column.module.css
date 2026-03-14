@@ -3,65 +3,93 @@
     flex-shrink: 0;
     display: flex;
     flex-direction: column;
-    background: var(--color-surface);
-    border: 1px solid var(--color-border);
-    border-radius: var(--radius-lg);
+    background: transparent;
     /* No overflow:hidden here — it clips dragged cards at column edges */
     max-height: calc(100vh - var(--topbar-height) - 48px);
 }
 
 .header {
     position: relative;
-    padding: var(--space-3) var(--space-3) var(--space-2);
-    border-bottom: 1px solid var(--color-border);
+    padding: var(--space-2) var(--space-1) var(--space-4);
     flex-shrink: 0;
 }
 
 .headerRow {
     display: flex;
     align-items: center;
+    gap: var(--space-3);
+    padding: 0 var(--space-1);
+}
+
+.nameAndCount {
+    display: flex;
+    align-items: center;
     gap: var(--space-2);
+    flex: 1;
+    min-width: 0;
 }
 
 .name {
-    font-size: var(--text-sm);
-    font-weight: 600;
-    color: var(--color-text-primary);
-    flex: 1;
+    font-size: 11px;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    color: var(--color-text-secondary);
     min-width: 0;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+    opacity: 0.9;
 }
 
 .count {
-    font-size: var(--text-xs);
+    font-size: 10px;
     color: var(--color-text-muted);
     background: var(--color-surface-2);
+    border: 1px solid var(--color-border);
     border-radius: var(--radius-full);
-    padding: 1px 7px;
-    font-weight: 500;
+    padding: 0px 8px;
+    height: 18px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
 }
 
 .headerActions {
     display: flex;
-    gap: 2px;
+    gap: var(--space-1);
+    align-items: center;
+    opacity: 0.4;
+    transition: opacity var(--transition-normal);
+}
+
+.headerRow:hover .headerActions {
+    opacity: 1;
 }
 
 .iconBtn {
-    width: 24px;
-    height: 24px;
+    width: 28px;
+    height: 28px;
     display: flex;
     align-items: center;
     justify-content: center;
-    border-radius: var(--radius-sm);
+    border-radius: var(--radius-md);
     color: var(--color-text-muted);
-    transition: background var(--transition-fast), color var(--transition-fast);
+    transition: all var(--transition-fast);
 }
 
 .iconBtn:hover {
     background: var(--color-surface-2);
     color: var(--color-text-primary);
+}
+
+.botActive {
+    color: var(--color-accent) !important;
+}
+
+.botIconAnimated {
+    animation: pulse 2s infinite ease-in-out;
 }
 
 .headerInput {
@@ -127,10 +155,10 @@
     flex: 1;
     overflow-y: auto;
     overflow-x: hidden;
-    padding: var(--space-2);
+    padding: 0 var(--space-1) var(--space-8);
     display: flex;
     flex-direction: column;
-    gap: var(--space-2);
+    gap: var(--space-4);
     /* Minimum height so empty columns are still a valid drop target */
     min-height: 80px;
     /* Ensure scrolling doesn't jitter during DnD */
@@ -157,31 +185,6 @@
     background: var(--color-surface-2);
     border: 1px solid var(--color-accent);
     border-radius: var(--radius-md);
-}
-
-.addBtn {
-    display: flex;
-    align-items: center;
-    gap: var(--space-2);
-    padding: var(--space-3);
-    width: 100%;
-    font-size: var(--text-sm);
-    color: var(--color-text-muted);
-    border-top: 1px solid var(--color-border);
-    border-radius: 0 0 var(--radius-lg) var(--radius-lg);
-    transition: background var(--transition-fast), color var(--transition-fast);
-    flex-shrink: 0;
-}
-
-.addBtn:hover {
-    background: var(--color-surface-2);
-    color: var(--color-text-primary);
-}
-
-.botIcon {
-    color: var(--color-accent);
-    margin-right: 4px;
-    animation: pulse 2s infinite ease-in-out;
 }
 
 @keyframes pulse {

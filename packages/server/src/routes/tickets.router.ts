@@ -6,6 +6,10 @@ import { sseManager } from '../sse.js';
 import { triggerAgent } from '../agents/agent-runner.js';
 import { agentQueue } from '../agents/agent-queue.js';
 import { runCmd } from '../utils/os.js';
+import { findFreePort } from '../utils/port.js';
+import { processRegistry } from '../utils/process-registry.js';
+import { spawn } from 'child_process';
+import net from 'net';
 import path from 'path';
 import type { Priority } from '../types.js';
 
@@ -208,6 +212,115 @@ router.post('/:id/comments', (req: Request, res: Response) => {
         content: content.trim(),
     });
     res.status(201).json(comment);
+});
+// POST /api/boards/:boardId/tickets/:id/sessions/:index/resume
+router.post('/:id/sessions/:index/resume', async (req: Request, res: Response) => {
+    const { id, index } = req.params;
+    const sessionIndex = parseInt(index, 10);
+    const ticket = ticketRepository.findById(id);
+
+    console.log(`[resume] Request for ticket ${id}, session index ${sessionIndex}`);
+
+    if (!ticket || !ticket.agent_sessions[sessionIndex]) {
+        console.error(`[resume] Session not found. Ticket sessions count: ${ticket?.agent_sessions?.length}`);
+        res.status(404).json({ error: 'Session not found' });
+        return;
+    }
+
+    const session = ticket.agent_sessions[sessionIndex];
+    let port = session.port;
+    
+    if (!port && session.url) {
+        try {
+            const urlObj = new URL(session.url);
+            port = parseInt(urlObj.port, 10) || 80;
+            console.log(`[resume] Extracted port ${port} from URL: ${session.url}`);
+        } catch (e: any) {
+            console.error(`[resume] Invalid URL in session: ${session.url}`);
+            console.error(`[resume] Error parsing URL: ${e?.message}`);
+        }
+    }
+
+    if (!port) {
+        console.error(`[resume] No port found for session at index ${sessionIndex}`);
+        res.status(400).json({ error: 'No port associated with session' });
+        return;
+    }
+
+    console.log(`[resume] Checking if port ${port} is open...`);
+    // Check if port is open
+    const isPortOpen = await new Promise<boolean>((resolve) => {
+        const socket = new net.Socket();
+        socket.setTimeout(800);
+        socket.on('connect', () => {
+            socket.destroy();
+            resolve(true);
+        });
+        socket.on('timeout', () => {
+            socket.destroy();
+            resolve(false);
+        });
+        socket.on('error', () => {
+            socket.destroy();
+            resolve(false);
+        });
+        socket.connect(Number(port), '127.0.0.1');
+    });
+
+    if (isPortOpen) {
+        console.log(`[resume] Port ${port} is open, returning current URL.`);
+        res.json({ url: session.url });
+        return;
+    }
+
+    console.log(`[resume] Port ${port} is closed. Attempting to restart...`);
+
+    // Port is closed, restart server
+    if (!session.worktree_path) {
+        console.error(`[resume] No worktree path for session index ${sessionIndex}. Cannot restart.`);
+        res.status(400).json({ error: 'No worktree path found to restart session' });
+        return;
+    }
+
+    try {
+        const newPort = await findFreePort(4100); // Start from a slightly different range
+        console.log(`[resume] Restarting opencode serve on port ${newPort} for ticket ${id}`);
+
+        const serverProcess = spawn('opencode', ['serve', '--port', newPort.toString()], {
+            cwd: session.worktree_path,
+            env: { ...process.env, OPENCODE_PORT: newPort.toString() },
+            stdio: 'ignore',
+            detached: true
+        });
+        serverProcess.unref();
+        processRegistry.register(id, serverProcess);
+
+        // Wait a bit for server to start
+        await new Promise(r => setTimeout(r, 2000));
+
+        let newUrl = session.url;
+        if (newUrl) {
+            try {
+                const urlObj = new URL(newUrl);
+                urlObj.port = newPort.toString();
+                newUrl = urlObj.toString();
+            } catch (e) {
+                // If URL parsing fails, just use port fallback
+                newUrl = undefined;
+            }
+        }
+
+        ticketRepository.updateAgentSessionByIndex(id, sessionIndex, {
+            port: newPort,
+            url: newUrl
+        });
+
+        console.log(`[resume] Successfully restarted and updated session with new URL: ${newUrl}`);
+        res.json({ url: newUrl || `http://127.0.0.1:${newPort}` });
+    } catch (err: any) {
+        console.error(`[resume] Failed to restart session: ${err.message}`);
+        res.status(500).json({ error: `Failed to restart session: ${err.message}` });
+    }
 });
 
 export { router as ticketsRouter };

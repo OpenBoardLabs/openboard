@@ -109,6 +109,7 @@ export class OpencodeAgent implements Agent {
                 agent_type: 'opencode',
                 status: 'blocked',
                 port: Number(opencodePort),
+                worktree_path: worktreePath,
                 error_message: e.message
             });
             commentRepository.create({
@@ -163,7 +164,8 @@ export class OpencodeAgent implements Agent {
                 agent_type: 'opencode',
                 status: 'processing',
                 port: dynamicPort,
-                url: agentUrl
+                url: agentUrl,
+                worktree_path: worktreePath
             });
 
             // --- Background Event Stream Listener ---

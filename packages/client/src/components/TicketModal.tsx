@@ -12,6 +12,7 @@ import { getAgentConfig, getAgentConfigByAuthor } from '../constants/agents';
 import { DiffPanel } from './DiffPanel';
 import { useParams } from 'react-router-dom';
 import { DropdownPortal } from './DropdownPortal';
+import { ticketsApi } from '../api/tickets.api';
 
 interface TicketModalProps {
     ticket?: Ticket;
@@ -66,7 +67,7 @@ export function TicketModal({ ticket, columnId, onClose }: TicketModalProps) {
                 const data = await response.json();
                 alert(`Failed to merge: ${data.error}`);
             }
-        } catch (err) {
+        } catch (err: any) {
             console.error('Merge error:', err);
             alert('Failed to send merge request');
         } finally {
@@ -118,6 +119,20 @@ export function TicketModal({ ticket, columnId, onClose }: TicketModalProps) {
         await addComment(ticket.board_id, ticket.id, newComment.trim(), 'user');
         setNewComment('');
     }
+    
+    const handleSessionClick = async (e: React.MouseEvent, sessionIndex: number) => {
+        if (!ticket) return;
+        e.preventDefault();
+        
+        try {
+            const { url } = await ticketsApi.resumeSession(ticket.board_id, ticket.id, sessionIndex);
+            window.open(url, '_blank', 'noopener,noreferrer');
+        } catch (err: any) {
+            console.error('Failed to resume session:', err);
+            const msg = err.message || 'Unknown error';
+            alert(`Failed to connect to agent session: ${msg}\n\nIt might still be starting or the server failed to restart.`);
+        }
+    };
 
     const column = state.columns.find(c => c.id === (ticket?.column_id ?? columnId));
 
@@ -179,11 +194,13 @@ export function TicketModal({ ticket, columnId, onClose }: TicketModalProps) {
                     <div className={styles.headerRight}>
                         {/* Action buttons mapped from session history */}
                         {(() => {
-                            if (!ticket?.agent_sessions || ticket.agent_sessions.length === 0) return null;
+                             if (!ticket?.agent_sessions || ticket.agent_sessions.length === 0) return null;
                             let activeSession = null;
+                            let activeSessionIndex = -1;
                             for (let i = ticket.agent_sessions.length - 1; i >= 0; i--) {
                                 if (ticket.agent_sessions[i].column_id === ticket.column_id) {
                                     activeSession = ticket.agent_sessions[i];
+                                    activeSessionIndex = i;
                                     break;
                                 }
                             }
@@ -220,16 +237,14 @@ export function TicketModal({ ticket, columnId, onClose }: TicketModalProps) {
                                         </button>
                                     )}
                                     {session?.url && (
-                                        <a
-                                            href={session.url}
-                                            target="_blank"
-                                            rel="noopener noreferrer"
+                                        <button
+                                            onClick={(e) => handleSessionClick(e, activeSessionIndex)}
                                             className={styles.sessionBtn}
                                             title="Open Agent Session"
                                         >
                                             <ExternalLink size={14} />
                                             <span>Agent session</span>
-                                        </a>
+                                        </button>
                                     )}
                                     {prSession?.pr_url && (
                                         <a
@@ -366,14 +381,13 @@ export function TicketModal({ ticket, columnId, onClose }: TicketModalProps) {
                                                             <span className={styles.historyCol}>{colName}</span>
                                                             <div className={styles.historyLinks}>
                                                                 {(session.url || session.port) && (
-                                                                    <a
-                                                                        href={session.url || `http://127.0.0.1:${session.port}`}
-                                                                        target="_blank"
-                                                                        rel="noopener noreferrer"
+                                                                    <button
+                                                                        onClick={(e) => handleSessionClick(e, idx)}
                                                                         className={styles.historyLink}
+                                                                        style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0, font: 'inherit' }}
                                                                     >
                                                                         Link <ExternalLink size={12} />
-                                                                    </a>
+                                                                    </button>
                                                                 )}
                                                                 {session.pr_url && (
                                                                     <a

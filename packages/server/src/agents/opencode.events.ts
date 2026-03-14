@@ -69,7 +69,8 @@ export async function setupOpencodeEventListener(
                     agent_type: agentType,
                     status: 'needs_approval',
                     port: port,
-                    url: agentUrl
+                    url: agentUrl,
+                    worktree_path: worktreePath
                 });
             }
 
@@ -82,7 +83,8 @@ export async function setupOpencodeEventListener(
                     agent_type: agentType,
                     status: 'processing',
                     port: port,
-                    url: agentUrl
+                    url: agentUrl,
+                    worktree_path: worktreePath
                 });
             }
 
@@ -110,6 +112,7 @@ export async function setupOpencodeEventListener(
                         status: 'blocked',
                         port: port,
                         url: agentUrl,
+                        worktree_path: worktreePath,
                         error_message: err.data?.message || err.name
                     });
                 }
@@ -178,6 +181,7 @@ export async function setupOpencodeEventListener(
                             status: 'done',
                             port: port,
                             url: agentUrl,
+                            worktree_path: worktreePath,
                             total_cost: rawSessionCost > 0 ? Number(rawSessionCost.toFixed(4)) : undefined
                         });
 
@@ -319,7 +323,7 @@ export async function setupOpencodeEventListener(
                                     port: port,
                                     url: agentUrl,
                                     pr_url: prUrl,
-                                    worktree_path: config.review_mode === 'local' ? worktreePath : undefined,
+                                    worktree_path: worktreePath,
                                     total_cost: rawSessionCost > 0 ? Number(rawSessionCost.toFixed(4)) : undefined
                                 });
 
@@ -343,6 +347,7 @@ export async function setupOpencodeEventListener(
                                     status: 'done',
                                     port: port,
                                     url: agentUrl,
+                                    worktree_path: worktreePath,
                                     total_cost: rawSessionCost > 0 ? Number(rawSessionCost.toFixed(4)) : undefined
                                 });
 

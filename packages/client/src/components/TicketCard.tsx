@@ -10,6 +10,7 @@ import { getAgentConfig } from '../constants/agents';
 import { DiffPanel } from './DiffPanel';
 
 import { DropdownPortal } from './DropdownPortal';
+import { ticketsApi } from '../api/tickets.api';
 
 interface TicketCardProps {
     ticket: Ticket;
@@ -67,6 +68,21 @@ export function TicketCard({ ticket, isOverlay }: TicketCardProps) {
         }
     };
 
+    const handleSessionClick = async (e: React.MouseEvent, sessionIndex: number) => {
+        if (!ticket || !boardId) return;
+        e.stopPropagation();
+        e.preventDefault();
+        
+        try {
+            const { url } = await ticketsApi.resumeSession(boardId, ticket.id, sessionIndex);
+            window.open(url, '_blank', 'noopener,noreferrer');
+        } catch (err: any) {
+            console.error('Failed to resume session:', err);
+            const msg = err.message || 'Unknown error';
+            alert(`Failed to connect to agent session: ${msg}\n\nIt might still be starting or the server failed to restart.`);
+        }
+    };
+
     return (
         <div
             ref={setNodeRef}
@@ -76,105 +92,19 @@ export function TicketCard({ ticket, isOverlay }: TicketCardProps) {
             {...listeners}
             onClick={() => navigate(`/boards/${boardId}/tickets/${ticket.id}`)}
         >
-            {(prSession || worktreeSession?.worktree_path) && (
-                <div className={styles.prButtonOverlay}>
-                    {prSession?.pr_url && (
-                        <a
-                            href={prSession.pr_url}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className={styles.inspectBtn}
-                            style={{ backgroundColor: '#2da44e', color: 'white', borderColor: '#2da44e' }}
-                            title="View Code Review"
-                            onClick={(e) => e.stopPropagation()}
-                        >
-                            <GitPullRequest size={14} />
-                            <span>PR</span>
-                            <ExternalLink size={12} />
-                        </a>
-                    )}
-                    {worktreeSession?.worktree_path && (
-                        <div className={styles.dropdown} ref={worktreeTriggerRef}>
-                            <button
-                                className={`${styles.inspectBtn} ${styles.worktreeBtn}`}
-                                title="Worktree Actions"
-                                onClick={(e) => {
-                                    e.stopPropagation();
-                                    setIsWorktreeOpen(!isWorktreeOpen);
-                                }}
-                            >
-                                <Copy size={14} />
-                                <span>Worktree</span>
-                                <ChevronDown size={12} />
-                            </button>
-                            <DropdownPortal
-                                isOpen={isWorktreeOpen}
-                                onClose={() => setIsWorktreeOpen(false)}
-                                triggerRef={worktreeTriggerRef}
-                            >
-                                <button
-                                    className={styles.dropdownItem}
-                                    onClick={(e) => {
-                                        e.stopPropagation();
-                                        navigator.clipboard.writeText(worktreeSession.worktree_path!);
-                                        setIsWorktreeOpen(false);
-                                    }}
-                                >
-                                    <Copy size={14} className={styles.dropdownIcon} />
-                                    <span>Copy Path</span>
-                                </button>
-                                <div className={styles.dropdownItemSeparator} />
-                                <button
-                                    className={styles.dropdownItem}
-                                    onClick={handleMerge}
-                                    disabled={isMerging || worktreeSession.merged}
-                                    style={(isMerging || worktreeSession.merged) ? { opacity: 0.5, cursor: 'not-allowed' } : {}}
-                                >
-                                    {isMerging ? (
-                                        <RotateCcw size={14} className={styles.processingIcon} />
-                                    ) : (
-                                        <GitBranch size={14} className={styles.dropdownIcon} />
-                                    )}
-                                    <span>{worktreeSession.merged ? 'Already merged' : isMerging ? 'Merging...' : 'Merge into master'}</span>
-                                </button>
-                                <div className={styles.dropdownItemSeparator} />
-                                <button
-                                    className={styles.dropdownItem}
-                                    onClick={(e) => {
-                                        e.stopPropagation();
-                                        setIsDiffOpen(true);
-                                        setIsWorktreeOpen(false);
-                                    }}
-                                >
-                                    <Eye size={14} className={styles.dropdownIcon} />
-                                    <span>Check diff</span>
-                                </button>
-                            </DropdownPortal>
-                        </div>
-                    )}
-                </div>
-            )}
-            <DiffPanel
-                isOpen={isDiffOpen}
-                onClose={() => setIsDiffOpen(false)}
-                boardId={boardId!}
-                ticket={ticket}
-            />
-            <p className={`${styles.title} ${prSession ? styles.titleWithPr : ''}`}>{ticket.title}</p>
-            {ticket.description && (
-                <p className={styles.description}>{ticket.description}</p>
-            )}
-            <div className={styles.footer}>
-                <div className={styles.left}>
+            <div className={styles.header}>
+                <div className={styles.badges}>
                     <PriorityBadge priority={ticket.priority} />
                     {(() => {
                         if (!ticket.agent_sessions || ticket.agent_sessions.length === 0) return null;
 
                         // Find the most recent session for this specific column
                         let activeSession = null;
+                        let activeSessionIndex = -1;
                         for (let i = ticket.agent_sessions.length - 1; i >= 0; i--) {
                             if (ticket.agent_sessions[i].column_id === ticket.column_id) {
                                 activeSession = ticket.agent_sessions[i];
+                                activeSessionIndex = i;
                                 break;
                             }
                         }
@@ -187,38 +117,126 @@ export function TicketCard({ ticket, isOverlay }: TicketCardProps) {
                         if (!showActiveSession) return null;
 
                         return (
-                            <React.Fragment key={(session?.column_id || 'no-col') + '-' + (session?.started_at || 'no-start')}>
-                                <a
-                                    href={session.url || `http://127.0.0.1:${session.port}`}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    className={`${styles.inspectBtn} ${session.status === 'processing' ? styles.processingBtn :
-                                        session.status === 'done' ? styles.doneBtn :
-                                            session.status === 'blocked' ? styles.blockedBtn :
-                                                session.status === 'needs_approval' ? styles.needsApprovalBtn : ''
-                                        }`}
-                                    title={session.url ? "Inspect Agent Session" : "Open Agent UI"}
-                                    onClick={(e) => e.stopPropagation()}
-                                >
-                                    {session.status === 'done' ? <CheckCircle size={14} className={styles.doneIcon} /> :
-                                        session.status === 'blocked' ? <span style={{ color: 'red' }}>⚠️</span> :
-                                            session.status === 'needs_approval' ? <span style={{ color: '#f59e0b', fontSize: '14px', lineHeight: 1 }}>✋</span> :
-                                                getAgentConfig(session.agent_type).icon}
-                                    <span>
-                                        {session.status === 'blocked' ? 'Error' :
-                                            session.status === 'done' ? 'Done' :
-                                                session.status === 'needs_approval' ? 'Needs Approval' :
-                                                    session.status === 'processing' ? getAgentConfig(session.agent_type).processingText :
-                                                        'Agent UI'}
-                                    </span>
-                                    <ExternalLink size={12} />
-                                </a>
-                            </React.Fragment>
+                            <button
+                                key={(session?.column_id || 'no-col') + '-' + (session?.started_at || 'no-start')}
+                                className={`${styles.statusBadge} ${session.status === 'processing' ? styles.processingBadge :
+                                    session.status === 'done' ? styles.doneBadge :
+                                        session.status === 'blocked' ? styles.blockedBadge :
+                                            session.status === 'needs_approval' ? styles.needsApprovalBadge : ''
+                                    }`}
+                                title={session.url ? "Inspect Agent Session" : "Open Agent UI"}
+                                onClick={(e) => handleSessionClick(e, activeSessionIndex)}
+                            >
+                                {session.status === 'done' ? <CheckCircle size={10} className={styles.doneIcon} /> :
+                                    session.status === 'blocked' ? <span style={{ color: 'red', fontSize: '10px' }}>⚠️</span> :
+                                        session.status === 'needs_approval' ? <span style={{ color: '#f59e0b', fontSize: '10px', lineHeight: 1 }}>✋</span> :
+                                            React.cloneElement(getAgentConfig(session.agent_type).icon as React.ReactElement, { size: 10 })}
+                                <span>
+                                    {session.status === 'blocked' ? 'Error' :
+                                        session.status === 'done' ? 'Done' :
+                                            session.status === 'needs_approval' ? 'Needs Approval' :
+                                                session.status === 'processing' ? getAgentConfig(session.agent_type).processingText :
+                                                    'Agent UI'}
+                                </span>
+                            </button>
                         );
                     })()}
                 </div>
-
             </div>
+
+            <DiffPanel
+                isOpen={isDiffOpen}
+                onClose={() => setIsDiffOpen(false)}
+                boardId={boardId!}
+                ticket={ticket}
+            />
+            
+            <p className={styles.title}>{ticket.title}</p>
+            
+            {ticket.description && (
+                <p className={styles.description}>{ticket.description}</p>
+            )}
+            
+            {(prSession || worktreeSession?.worktree_path) && (
+                <div className={styles.footer}>
+                    <div className={styles.footerActions}>
+                        {prSession?.pr_url && (
+                            <a
+                                href={prSession.pr_url}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className={styles.actionBtn}
+                                style={{ backgroundColor: '#2da44e', color: 'white', borderColor: '#2da44e' }}
+                                title="View Code Review"
+                                onClick={(e) => e.stopPropagation()}
+                            >
+                                <GitPullRequest size={12} />
+                                <span>PR</span>
+                                <ExternalLink size={10} />
+                            </a>
+                        )}
+                        {worktreeSession?.worktree_path && (
+                            <div className={styles.dropdown} ref={worktreeTriggerRef}>
+                                <button
+                                    className={`${styles.actionBtn} ${styles.worktreeBtn}`}
+                                    title="Worktree Actions"
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        setIsWorktreeOpen(!isWorktreeOpen);
+                                    }}
+                                >
+                                    <Copy size={12} />
+                                    <span>Worktree</span>
+                                    <ChevronDown size={10} />
+                                </button>
+                                <DropdownPortal
+                                    isOpen={isWorktreeOpen}
+                                    onClose={() => setIsWorktreeOpen(false)}
+                                    triggerRef={worktreeTriggerRef}
+                                >
+                                    <button
+                                        className={styles.dropdownItem}
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            navigator.clipboard.writeText(worktreeSession.worktree_path!);
+                                            setIsWorktreeOpen(false);
+                                        }}
+                                    >
+                                        <Copy size={14} className={styles.dropdownIcon} />
+                                        <span>Copy Path</span>
+                                    </button>
+                                    <div className={styles.dropdownItemSeparator} />
+                                    <button
+                                        className={styles.dropdownItem}
+                                        onClick={handleMerge}
+                                        disabled={isMerging || worktreeSession.merged}
+                                        style={(isMerging || worktreeSession.merged) ? { opacity: 0.5, cursor: 'not-allowed' } : {}}
+                                    >
+                                        {isMerging ? (
+                                            <RotateCcw size={14} className={styles.processingIcon} />
+                                        ) : (
+                                            <GitBranch size={14} className={styles.dropdownIcon} />
+                                        )}
+                                        <span>{worktreeSession.merged ? 'Already merged' : isMerging ? 'Merging...' : 'Merge into master'}</span>
+                                    </button>
+                                    <div className={styles.dropdownItemSeparator} />
+                                    <button
+                                        className={styles.dropdownItem}
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            setIsDiffOpen(true);
+                                            setIsWorktreeOpen(false);
+                                        }}
+                                    >
+                                        <Eye size={14} className={styles.dropdownIcon} />
+                                        <span>Check diff</span>
+                                    </button>
+                                </DropdownPortal>
+                            </div>
+                        )}
+                    </div>
+                </div>
+            )}
         </div>
     );
 }

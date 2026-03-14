@@ -81,7 +81,7 @@
 .content {
     flex: 1;
     overflow-y: auto;
-    background: #0d1117; /* Common background for dark diffs */
+    background: var(--color-diff-bg);
 }
 
 .status {
@@ -128,7 +128,7 @@
     border: 1px solid var(--color-border);
     border-radius: var(--radius-lg);
     overflow: hidden;
-    background: #0d1117;
+    background: var(--color-diff-bg);
 }
 
 .fileHeader {
@@ -174,7 +174,7 @@
 .diffContainer :global(.diff) {
     font-family: var(--font-mono);
     background: transparent;
-    color: #adbac7;
+    color: var(--color-diff-text);
 }
 
 .diffContainer :global(.diff-line-content) {
@@ -182,26 +182,26 @@
 }
 
 .diffContainer :global(.diff-code-insert) {
-    background-color: rgba(63, 185, 80, 0.15);
+    background-color: var(--color-diff-added-bg);
 }
 
 .diffContainer :global(.diff-code-delete) {
-    background-color: rgba(248, 81, 73, 0.15);
+    background-color: var(--color-diff-removed-bg);
 }
 
 .diffContainer :global(.diff-gutter-insert) {
-    background-color: rgba(63, 185, 80, 0.3);
-    color: #3fb950;
+    background-color: var(--color-diff-added-gutter);
+    color: var(--color-diff-added-text);
 }
 
 .diffContainer :global(.diff-gutter-delete) {
-    background-color: rgba(248, 81, 73, 0.3);
-    color: #f85149;
+    background-color: var(--color-diff-removed-gutter);
+    color: var(--color-diff-removed-text);
 }
 
 .diffContainer :global(.diff-hunk-header) {
-    background-color: rgba(56, 139, 253, 0.1);
-    color: #768390;
+    background-color: var(--color-diff-hunk-bg);
+    color: var(--color-diff-hunk-text);
     padding: 4px 10px;
     font-size: 11px;
 }
