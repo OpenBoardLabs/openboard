@@ -161,7 +161,7 @@ class AgentQueueManager {
         }
     }
 
-    private async dispatchAgent(ticket: Ticket, config: { agent_type: AgentType; agent_model?: string | null; on_finish_column_id?: string | null }) {
+    private async dispatchAgent(ticket: Ticket, config: { agent_type: AgentType; on_finish_column_id?: string | null }) {
         console.log(`[agent-queue] Dispatching agent ${config.agent_type} for ticket ${ticket.id} in column ${ticket.column_id} (Priority: ${ticket.priority})`);
 
         // Agents own setting their own 'processing' status at the start of run()
