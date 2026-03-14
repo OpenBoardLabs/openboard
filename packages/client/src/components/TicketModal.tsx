@@ -265,9 +265,10 @@ export function TicketModal({ ticket, columnId, onClose }: TicketModalProps) {
                                                 className={styles.sessionBtn}
                                                 title="Worktree Actions"
                                                 onClick={() => setIsWorktreeOpen(!isWorktreeOpen)}
+                                                style={worktreeSession.merged ? { backgroundColor: '#2da44e', color: 'white', borderColor: '#2da44e' } : {}}
                                             >
-                                                <Copy size={14} />
-                                                <span>Worktree</span>
+                                                {worktreeSession.merged ? <CheckCircle size={14} /> : <Copy size={14} />}
+                                                <span>{worktreeSession.merged ? 'Merged' : 'Worktree'}</span>
                                                 <ChevronDown size={12} />
                                             </button>
                                             <DropdownPortal

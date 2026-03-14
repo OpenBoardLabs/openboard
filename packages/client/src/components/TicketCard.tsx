@@ -196,9 +196,10 @@ export function TicketCard({ ticket, isOverlay }: TicketCardProps) {
                                         e.stopPropagation();
                                         setIsWorktreeOpen(!isWorktreeOpen);
                                     }}
+                                    style={worktreeSession.merged ? { backgroundColor: '#2da44e', color: 'white', borderColor: '#2da44e' } : {}}
                                 >
-                                    <Copy size={12} />
-                                    <span>Worktree</span>
+                                    {worktreeSession.merged ? <CheckCircle size={12} /> : <Copy size={12} />}
+                                    <span>{worktreeSession.merged ? 'Merged' : 'Worktree'}</span>
                                     <ChevronDown size={10} />
                                 </button>
                                 <DropdownPortal
