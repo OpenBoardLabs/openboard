@@ -7,7 +7,6 @@ import type { AgentType, Ticket, Priority } from '../types.js';
 // (agent files import opencode.events.ts which imports agentQueue from here)
 async function resolveAgentClass(agentType: AgentType): Promise<(new () => Agent) | undefined> {
     switch (agentType) {
-        case 'dummy': return (await import('./dummy.agent.js')).DummyAgent;
         case 'opencode': return (await import('./opencode.agent.js')).OpencodeAgent;
         case 'code_review': return (await import('./codereview.agent.js')).CodeReviewAgent;
         default: return undefined;
