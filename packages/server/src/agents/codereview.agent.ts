@@ -158,13 +158,19 @@ export class CodeReviewAgent implements Agent {
                 console.warn(`[codereview-agent] Could not fetch GH token:`, authErr);
             }
 
-            const promptText = isLocalReview
-                ? `# TASK: Code Review for "${ticket.title}"\n\nA local worktree review will be performed. The changes are located at: ${worktreePath}\n\n## Instructions
+            // Fetch ticket comments for context
+        const ticketComments = commentRepository.findByTicketId(ticket.id);
+        const commentsContext = ticketComments.length > 0
+            ? `## Ticket Comments\n\n${ticketComments.map(c => `- **${c.author}**: ${c.content}`).join('\n')}\n\n`
+            : '';
+
+        const promptText = isLocalReview
+            ? `# TASK: Code Review for "${ticket.title}"\n\n${commentsContext}A local worktree review will be performed. The changes are located at: ${worktreePath}\n\n## Instructions
 1. Run \`git diff HEAD~1 HEAD\` in the worktree directory ${worktreePath} to see what changed.
 2. Analyze the changes for bugs, security issues, best practices, and edge cases.
 3. Review the code directly in the worktree at ${worktreePath}.
 4. Summarize your review directly in this chat. **IMPORTANT: Your summary MUST include either \`[APPROVED]\` (if the changes look good) or \`[CHANGES_REQUESTED]\` (if updates are needed) so that the ticket can be automatically moved.**`
-                : `# TASK: Code Review for "${ticket.title}"\n\nThe Pull Request to review is located at: ${prUrl}\n\n## Instructions
+            : `# TASK: Code Review for "${ticket.title}"\n\n${commentsContext}The Pull Request to review is located at: ${prUrl}\n\n## Instructions
 1. Download the diff using \`${ghTokenEnv}gh pr diff ${prUrl}\`.
 2. Analyze the changes for bugs, security issues, best practices, and edge cases.
 3. If the code looks good, leave a comment using \`${ghTokenEnv}gh pr comment ${prUrl} -b "LGTM! [APPROVED]"\`.
