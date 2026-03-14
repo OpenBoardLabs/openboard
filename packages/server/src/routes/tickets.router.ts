@@ -116,11 +116,11 @@ router.post('/:id/merge', async (req: Request, res: Response) => {
 
     try {
         console.log(`[merge] Merging branch ${branchName} into master in ${board.path}...`);
-        
+
         // Ensure we are on master first? Or just merge into master.
         // Usually, the board path repo is on master.
         const { stdout, stderr } = await runCmd('git', ['merge', branchName], board.path, 'merge-action');
-        
+
         // Update the session to mark as merged
         ticketRepository.updateAgentSession(ticket.id, {
             column_id: worktreeSession.column_id,
@@ -138,7 +138,7 @@ router.post('/:id/merge', async (req: Request, res: Response) => {
         res.json({ status: 'success', stdout, stderr });
     } catch (e: any) {
         console.error(`[merge] Failed to merge: ${e.message}`);
-        
+
         commentRepository.create({
             ticketId: ticket.id,
             author: 'system',
@@ -174,11 +174,11 @@ router.get('/:id/diff', async (req: Request, res: Response) => {
 
     try {
         console.log(`[diff] Fetching diff for branch ${branchName} in ${board.path}...`);
-        
+
         // Run git diff master...branch
         // This shows changes in branch since it diverged from master
         const { stdout } = await runCmd('git', ['diff', 'master...' + branchName], board.path, 'diff-action');
-        
+
         res.json({ diff: stdout });
     } catch (e: any) {
         console.error(`[diff] Failed to get diff: ${e.message}`);
@@ -229,7 +229,7 @@ router.post('/:id/sessions/:index/resume', async (req: Request, res: Response) =
 
     const session = ticket.agent_sessions[sessionIndex];
     let port = session.port;
-    
+
     if (!port && session.url) {
         try {
             const urlObj = new URL(session.url);
@@ -275,8 +275,10 @@ router.post('/:id/sessions/:index/resume', async (req: Request, res: Response) =
 
     console.log(`[resume] Port ${port} is closed. Attempting to restart...`);
 
+    const worktreePath = session.worktree_path || ticket.agent_sessions.find(s => s.worktree_path)?.worktree_path;
+
     // Port is closed, restart server
-    if (!session.worktree_path) {
+    if (!worktreePath) {
         console.error(`[resume] No worktree path for session index ${sessionIndex}. Cannot restart.`);
         res.status(400).json({ error: 'No worktree path found to restart session' });
         return;
@@ -296,7 +298,7 @@ router.post('/:id/sessions/:index/resume', async (req: Request, res: Response) =
         processRegistry.register(id, serverProcess);
 
         // Wait a bit for server to start
-        await new Promise(r => setTimeout(r, 2000));
+        await new Promise(r => setTimeout(r, 3000));
 
         let newUrl = session.url;
         if (newUrl) {
