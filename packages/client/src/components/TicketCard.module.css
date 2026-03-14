@@ -22,6 +22,8 @@
 .card.dragging {
     box-shadow: var(--shadow-md);
     cursor: grabbing;
+    flex-shrink: 0;
+    min-height: min-content;
 }
 
 .needsApprovalCard {

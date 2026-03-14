@@ -5,7 +5,7 @@ import { columnsApi } from '../api/columns.api';
 import { ticketsApi } from '../api/tickets.api';
 import { commentsApi } from '../api/comments.api';
 import { columnConfigApi } from '../api/column-config.api';
-import type { Priority, Comment, ColumnConfig, AgentType, BoardWorkspace } from '../types';
+import type { Priority, Comment, ColumnConfig, AgentType, CoderType, BoardWorkspace } from '../types';
 import { useSSE } from '../hooks/useSSE';
 
 // ---------------------------------------------------------------------------
@@ -205,7 +205,7 @@ interface AppContextValue {
     loadColumnConfigs: (boardId: string) => Promise<void>;
     loadComments: (boardId: string, ticketId: string) => Promise<void>;
     addComment: (boardId: string, ticketId: string, content: string, author?: string) => Promise<void>;
-    updateColumnConfig: (boardId: string, columnId: string, data: { agentType: AgentType; maxAgents?: number; reviewMode?: 'pr' | 'local'; onFinishColumnId?: string | null; onRejectColumnId?: string | null }) => Promise<void>;
+    updateColumnConfig: (boardId: string, columnId: string, data: { agentType: AgentType; coderType?: CoderType | null; reviewerType?: CoderType | null; maxAgents?: number; reviewMode?: 'pr' | 'local'; onFinishColumnId?: string | null; onRejectColumnId?: string | null }) => Promise<void>;
     deleteColumnConfig: (boardId: string, columnId: string) => Promise<void>;
     removeAutoMovedEffect: (ticketId: string) => void;
 }

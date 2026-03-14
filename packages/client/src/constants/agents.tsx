@@ -1,5 +1,6 @@
-import { Bot, Code2, Eye } from 'lucide-react';
+import { Bot, Code2, Eye, MousePointer } from 'lucide-react';
 import React from 'react';
+import type { CoderType } from '../types';
 
 export interface AgentUIConfig {
     icon: React.ReactNode;
@@ -12,8 +13,14 @@ export const AGENT_CONFIGS: Record<string, AgentUIConfig> = {
     'opencode': {
         icon: <Code2 size={14} />,
         processingText: 'coding...',
-        label: 'Coder',
+        label: 'OpenCode',
         color: '#3b82f6'
+    },
+    'cursor': {
+        icon: <MousePointer size={14} />,
+        processingText: 'coding...',
+        label: 'Cursor',
+        color: '#7c3aed'
     },
     'code_review': {
         icon: <Eye size={14} />,
@@ -29,6 +36,11 @@ export const AGENT_CONFIGS: Record<string, AgentUIConfig> = {
     }
 };
 
+/** Coder implementations shown in column config. Add new entries here to support more coders (e.g. cursor, claude_code). */
+export const CODER_TYPES: { value: CoderType; label: string }[] = [
+    { value: 'opencode', label: 'OpenCode' },
+];
+
 export function getAgentConfig(agentType: string | undefined): AgentUIConfig {
     if (!agentType) return AGENT_CONFIGS.default;
     return AGENT_CONFIGS[agentType] || AGENT_CONFIGS.default;
@@ -37,6 +49,7 @@ export function getAgentConfig(agentType: string | undefined): AgentUIConfig {
 export function getAgentConfigByAuthor(author: string): AgentUIConfig {
     if (author === 'user') return AGENT_CONFIGS.default;
     if (author.includes('opencode')) return AGENT_CONFIGS.opencode;
+    if (author.includes('cursor')) return AGENT_CONFIGS.cursor;
     if (author.includes('review')) return AGENT_CONFIGS.code_review;
     return AGENT_CONFIGS.default;
 }

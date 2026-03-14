@@ -21,22 +21,21 @@ import {
     DragOverlay,
     defaultDropAnimationSideEffects,
 } from '@dnd-kit/core';
-import { arrayMove } from '@dnd-kit/sortable';
-import type { Ticket } from '../types';
+import { arrayMove, SortableContext, horizontalListSortingStrategy } from '@dnd-kit/sortable';
+import type { Ticket, Column as ColumnType } from '../types';
 
 export function BoardView() {
     const { boardId, ticketId } = useParams();
     const navigate = useNavigate();
-    const { state, createColumn, moveTicket, selectBoard, loadBoardData, updateBoard } = useApp();
+    const { state, createColumn, moveTicket, selectBoard, loadBoardData, updateBoard, reorderColumns } = useApp();
     const { activeBoardId, columns, tickets, loading, boards } = state;
     const [addingColumn, setAddingColumn] = useState(false);
     const [isEditingBoard, setIsEditingBoard] = useState(false);
 
-    // Track optimistic ticket placement during drag
     const [localTickets, setLocalTickets] = useState<Ticket[] | null>(null);
+    const [activeColumn, setActiveColumn] = useState<ColumnType | null>(null);
     const [activeTicket, setActiveTicket] = useState<Ticket | null>(null);
 
-    // Track where the drag is heading so handleDragEnd doesn't lose it
     const dragDestRef = useRef<{ columnId: string; index: number } | null>(null);
 
     const sensors = useSensors(useSensor(PointerSensor, {
@@ -45,7 +44,6 @@ export function BoardView() {
 
     const displayedTickets = localTickets ?? tickets;
 
-    // Sync activeBoardId with URL
     useEffect(() => {
         if (boardId && boardId !== activeBoardId) {
             selectBoard(boardId);
@@ -75,12 +73,10 @@ export function BoardView() {
     }
 
     function handleDragStart(event: DragStartEvent) {
-        const { active } = event;
-        const activeData = active.data.current as { type: string; ticket: Ticket } | undefined;
-        if (activeData?.type === 'ticket') {
-            setActiveTicket(activeData.ticket);
-        }
         dragDestRef.current = null;
+        const activeData = event.active.data.current as { type?: string; ticket?: Ticket; column?: ColumnType } | undefined;
+        if (activeData?.type === 'column' && activeData.column) setActiveColumn(activeData.column);
+        if (activeData?.type === 'ticket' && activeData.ticket) setActiveTicket(activeData.ticket);
     }
 
     function handleDragOver(event: DragOverEvent) {
@@ -90,7 +86,7 @@ export function BoardView() {
         const activeId = active.id as string;
         const overId = over.id as string;
 
-        const activeData = active.data.current as { type: string; ticket: Ticket } | undefined;
+        const activeData = active.data.current as { type: string; ticket?: Ticket } | undefined;
         if (activeData?.type !== 'ticket') return;
 
         const overData = over.data.current as { type: string; ticket?: Ticket; column?: { id: string } } | undefined;
@@ -112,7 +108,6 @@ export function BoardView() {
 
         const sourceColumnId = activeTicketInState.column_id;
 
-        // Calculate new index in destination column
         const destTickets = currentTickets
             .filter(t => t.column_id === destColumnId && t.id !== activeId)
             .sort((a, b) => a.position - b.position);
@@ -124,13 +119,11 @@ export function BoardView() {
         }
         if (destIndex === -1) destIndex = destTickets.length;
 
-        // Update local state for optimistic UI
         if (sourceColumnId !== destColumnId) {
             setLocalTickets(() => {
                 const otherTickets = currentTickets.filter(t => t.id !== activeId);
                 const updatedActive = { ...activeTicketInState, column_id: destColumnId };
 
-                // Re-calculate all positions in dest column
                 const destColTickets = otherTickets.filter(t => t.column_id === destColumnId).sort((a, b) => a.position - b.position);
                 destColTickets.splice(destIndex, 0, updatedActive);
 
@@ -140,7 +133,6 @@ export function BoardView() {
                 return [...finalTickets, ...destColTickets];
             });
         } else {
-            // Same column reorder
             const colTickets = currentTickets.filter(t => t.column_id === sourceColumnId).sort((a, b) => a.position - b.position);
             const oldIdx = colTickets.findIndex(t => t.id === activeId);
             const newIdx = colTickets.findIndex(t => t.id === overId);
@@ -163,9 +155,33 @@ export function BoardView() {
 
     async function handleDragEnd(event: DragEndEvent) {
         const { active, over } = event;
+        const activeData = active.data.current as { type: string } | undefined;
+
+        setActiveColumn(null);
+        setActiveTicket(null);
+
+        // Column reordering
+        if (activeData?.type === 'column' && over) {
+            const activeId = active.id as string;
+            const overId = over.id as string;
+
+            if (activeId !== overId) {
+                const orderedIds = [...columns].sort((a, b) => a.position - b.position).map(c => c.id);
+                const oldIndex = orderedIds.indexOf(activeId);
+                const newIndex = orderedIds.indexOf(overId);
+
+                if (oldIndex !== -1 && newIndex !== -1) {
+                    const newOrder = arrayMove(orderedIds, oldIndex, newIndex);
+                    await reorderColumns(boardId!, newOrder);
+                }
+            }
+
+            return;
+        }
+
+        // Ticket movement
         const dest = dragDestRef.current;
 
-        setActiveTicket(null);
         dragDestRef.current = null;
 
         if (!over || !dest) {
@@ -175,13 +191,8 @@ export function BoardView() {
 
         const activeId = active.id as string;
 
-        // Optimistically keep the local state until the server responds or we dispatch
-        // Actually, we should keep it until the next render cycle after moveTicket is called
-        // to avoid the flicker.
-
         await moveTicket(boardId!, activeId, dest.columnId, dest.index);
 
-        // Clear local tickets AFTER starting the move to let the store update take over
         setTimeout(() => setLocalTickets(null), 0);
     }
 
@@ -218,49 +229,46 @@ export function BoardView() {
                             {[1, 2, 3].map(i => <div key={i} className={styles.skeleton} />)}
                         </div>
                     ) : (
-                        <>
-                            {sortedColumns.map(col => (
-                                <Column
-                                    key={col.id}
-                                    column={col}
-                                    tickets={getTicketsForColumn(col.id)}
-                                    boardId={boardId!}
-                                />
-                            ))}
-
-                            {addingColumn ? (
-                                <div className={styles.newColumn}>
-                                    <InlineEdit
-                                        defaultValue=""
-                                        placeholder={t('column.rename_placeholder')}
-                                        onSave={handleAddColumn}
-                                        onCancel={() => setAddingColumn(false)}
-                                        className={styles.newColumnInput}
+                        <SortableContext
+                            items={sortedColumns.map(col => col.id)}
+                            strategy={horizontalListSortingStrategy}
+                        >
+                            <>
+                                {sortedColumns.map(col => (
+                                    <Column
+                                        key={col.id}
+                                        column={col}
+                                        tickets={getTicketsForColumn(col.id)}
+                                        boardId={boardId!}
                                     />
-                                </div>
-                            ) : (
-                                <button className={styles.addColBtn} onClick={() => setAddingColumn(true)}>
-                                    <Plus size={15} />
-                                    {t('column.add')}
-                                </button>
-                            )}
-                        </>
+                                ))}
+
+                                {addingColumn ? (
+                                    <div className={styles.newColumn}>
+                                        <InlineEdit
+                                            defaultValue=""
+                                            placeholder={t('column.rename_placeholder')}
+                                            onSave={handleAddColumn}
+                                            onCancel={() => setAddingColumn(false)}
+                                            className={styles.newColumnInput}
+                                        />
+                                    </div>
+                                ) : (
+                                    <button className={styles.addColBtn} onClick={() => setAddingColumn(true)}>
+                                        <Plus size={15} />
+                                        {t('column.add')}
+                                    </button>
+                                )}
+                            </>
+                        </SortableContext>
                     )}
                 </div>
 
-                <DragOverlay dropAnimation={{
-                    sideEffects: defaultDropAnimationSideEffects({
-                        styles: {
-                            active: {
-                                opacity: '0.4',
-                            },
-                        },
-                    }),
-                }}>
-                    {activeTicket ? (
-                        <div style={{ width: 'var(--column-width)' }}>
-                            <TicketCard ticket={activeTicket} isOverlay />
-                        </div>
+                <DragOverlay dropAnimation={null}>
+                    {activeColumn ? (
+                        <div className={styles.columnDragGhost} />
+                    ) : activeTicket ? (
+                        <TicketCard ticket={activeTicket} isOverlay />
                     ) : null}
                 </DragOverlay>
             </DndContext>

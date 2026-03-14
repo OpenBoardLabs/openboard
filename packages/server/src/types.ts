@@ -1,6 +1,9 @@
 // Shared types between server and client (duplicated intentionally for zero-dep simplicity)
 
-export type AgentType = 'none' | 'opencode' | 'code_review';
+export type AgentType = 'none' | 'coder' | 'code_review';
+
+/** Which coder implementation to use when agent_type is 'coder'. Extensible for more (e.g. claude_code). */
+export type CoderType = 'opencode' | 'cursor';
 
 export type Priority = 'low' | 'medium' | 'high' | 'urgent';
 
@@ -74,6 +77,10 @@ export interface Comment {
 export interface ColumnConfig {
     column_id: string;
     agent_type: AgentType;
+    /** When agent_type is 'coder', which implementation to use. Defaults to 'opencode'. */
+    coder_type?: CoderType;
+    /** When agent_type is 'code_review', which implementation to use. Defaults to 'opencode'. */
+    reviewer_type?: CoderType;
     max_agents?: number;
     review_mode?: 'pr' | 'local';
     on_finish_column_id: string | null;

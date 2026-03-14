@@ -1,5 +1,5 @@
 import { API_BASE_URL } from '../constants';
-import type { ColumnConfig, AgentType } from '../types';
+import type { ColumnConfig, AgentType, CoderType } from '../types';
 
 async function request<T>(path: string, options?: RequestInit): Promise<T> {
     const res = await fetch(`${API_BASE_URL}${path}`, {
@@ -20,7 +20,7 @@ export const columnConfigApi = {
         request<ColumnConfig[]>(`/boards/${boardId}/columns/configs`),
     getConfig: (boardId: string, columnId: string) =>
         request<ColumnConfig | null>(`/boards/${boardId}/columns/${columnId}/config`),
-    upsert: (boardId: string, columnId: string, data: { agentType: AgentType; maxAgents?: number; reviewMode?: 'pr' | 'local'; onFinishColumnId?: string | null; onRejectColumnId?: string | null }) =>
+    upsert: (boardId: string, columnId: string, data: { agentType: AgentType; coderType?: CoderType | null; reviewerType?: CoderType | null; maxAgents?: number; reviewMode?: 'pr' | 'local'; onFinishColumnId?: string | null; onRejectColumnId?: string | null }) =>
         request<ColumnConfig>(`/boards/${boardId}/columns/${columnId}/config`, {
             method: 'PUT',
             body: JSON.stringify(data),

@@ -1,7 +1,7 @@
 import { Router, Request, Response } from 'express';
 import { columnConfigRepository } from '../repositories/column-config.repository.js';
 import { sseManager } from '../sse.js';
-import type { AgentType } from '../types.js';
+import type { AgentType, CoderType } from '../types.js';
 
 const router = Router({ mergeParams: true });
 
@@ -24,8 +24,10 @@ router.get('/:id/config', (req: Request, res: Response) => {
 
 // PUT /api/boards/:boardId/columns/:id/config
 router.put('/:id/config', (req: Request, res: Response) => {
-    const { agentType, maxAgents, reviewMode, onFinishColumnId, onRejectColumnId } = req.body as {
+    const { agentType, coderType, reviewerType, maxAgents, reviewMode, onFinishColumnId, onRejectColumnId } = req.body as {
         agentType: AgentType;
+        coderType?: CoderType | null;
+        reviewerType?: CoderType | null;
         maxAgents?: number;
         reviewMode?: 'pr' | 'local';
         onFinishColumnId?: string | null;
@@ -38,6 +40,8 @@ router.put('/:id/config', (req: Request, res: Response) => {
     const config = columnConfigRepository.upsert({
         columnId: req.params.id,
         agentType,
+        coderType,
+        reviewerType,
         maxAgents,
         reviewMode,
         onFinishColumnId,

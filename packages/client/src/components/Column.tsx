@@ -9,7 +9,8 @@ import { InlineEdit } from './InlineEdit';
 import { ConfirmDialog } from './ConfirmDialog';
 import styles from './Column.module.css';
 import { Plus, MoreHorizontal, Pencil, Trash2, Bot } from 'lucide-react';
-import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable';
+import { useSortable, SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 import { useDroppable } from '@dnd-kit/core';
 
 interface ColumnProps {
@@ -28,7 +29,19 @@ export function Column({ column, tickets, boardId }: ColumnProps) {
 
     const config = columnConfigs.find(c => c.column_id === column.id);
 
+    const { attributes, listeners, setNodeRef: setSortableRef, transform, transition, isDragging } = useSortable({
+        id: column.id,
+        data: { type: 'column', column },
+    });
+
     const { setNodeRef: setDropRef } = useDroppable({ id: column.id, data: { type: 'column', column } });
+
+    const style: React.CSSProperties = {
+        transform: CSS.Transform.toString(transform),
+        transition,
+        cursor: isDragging ? 'grabbing' : 'grab',
+        opacity: isDragging ? 0 : 1,
+    };
 
 
     async function handleAddClick() {
@@ -36,7 +49,13 @@ export function Column({ column, tickets, boardId }: ColumnProps) {
     }
 
     return (
-        <div className={styles.column}>
+        <div
+            ref={setSortableRef}
+            style={style}
+            className={`${styles.column} ${isDragging ? styles.dragging : ''}`}
+            {...attributes}
+            {...listeners}
+        >
             {/* Column header */}
             <div className={styles.header}>
                 {editing ? (

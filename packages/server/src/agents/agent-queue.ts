@@ -1,14 +1,26 @@
 import { ticketRepository } from '../repositories/ticket.repository.js';
 import { columnConfigRepository } from '../repositories/column-config.repository.js';
 import type { Agent } from './agent.interface.js';
-import type { AgentType, Ticket, Priority } from '../types.js';
+import type { ColumnConfig, Ticket, Priority } from '../types.js';
+
+/** Effective implementation type: coder/review columns resolve via coder_type/reviewer_type. */
+type EffectiveAgentType = 'opencode' | 'cursor' | 'code_review' | 'code_review_cursor';
+
+function getEffectiveAgentType(config: ColumnConfig): EffectiveAgentType | null {
+    if (config.agent_type === 'none') return null;
+    if (config.agent_type === 'coder') return config.coder_type ?? 'opencode';
+    if (config.agent_type === 'code_review') return config.reviewer_type === 'cursor' ? 'code_review_cursor' : 'code_review';
+    return null;
+}
 
 // Agents are lazy-loaded inside dispatchAgent() to avoid circular ESM imports
 // (agent files import opencode.events.ts which imports agentQueue from here)
-async function resolveAgentClass(agentType: AgentType): Promise<(new () => Agent) | undefined> {
-    switch (agentType) {
+async function resolveAgentClass(effectiveType: EffectiveAgentType): Promise<(new () => Agent) | undefined> {
+    switch (effectiveType) {
         case 'opencode': return (await import('./opencode.agent.js')).OpencodeAgent;
+        case 'cursor': return (await import('./cursor.agent.js')).CursorAgent;
         case 'code_review': return (await import('./codereview.agent.js')).CodeReviewAgent;
+        case 'code_review_cursor': return (await import('./cursor-codereview.agent.js')).CursorCodeReviewAgent;
         default: return undefined;
     }
 }
@@ -162,32 +174,34 @@ class AgentQueueManager {
         }
     }
 
-    private async dispatchAgent(ticket: Ticket, config: { agent_type: AgentType; on_finish_column_id?: string | null }) {
-        console.log(`[agent-queue] Dispatching agent ${config.agent_type} for ticket ${ticket.id} in column ${ticket.column_id} (Priority: ${ticket.priority})`);
+    private async dispatchAgent(ticket: Ticket, config: ColumnConfig) {
+        const effectiveType = getEffectiveAgentType(config);
+        if (!effectiveType) return;
+
+        console.log(`[agent-queue] Dispatching agent ${effectiveType} for ticket ${ticket.id} in column ${ticket.column_id} (Priority: ${ticket.priority})`);
 
         // Agents own setting their own 'processing' status at the start of run()
-        const AgentClass = await resolveAgentClass(config.agent_type);
+        const AgentClass = await resolveAgentClass(effectiveType);
         if (!AgentClass) {
-            console.warn(`[agent-queue] Unknown agent type: ${config.agent_type}`);
+            console.warn(`[agent-queue] Unknown agent type: ${effectiveType}`);
             return;
         }
 
         const agent = new AgentClass();
         try {
-            await agent.run(ticket, config as any);
+            await agent.run(ticket, config);
+            console.log(`[agent-queue] Agent ${effectiveType} finished for ticket ${ticket.id}.`);
         } catch (err) {
-            console.error(`[agent-queue] Error executing agent ${config.agent_type} on ticket ${ticket.id}:`, err);
+            console.error(`[agent-queue] Error executing agent ${effectiveType} on ticket ${ticket.id}:`, err);
 
-            // Mark as blocked on execution failure safely
+            // Mark as blocked on execution failure (use display type so UI shows correct icon)
+            const sessionAgentType = effectiveType === 'code_review_cursor' ? 'cursor' : effectiveType;
             ticketRepository.updateAgentSession(ticket.id, {
                 column_id: ticket.column_id,
-                agent_type: config.agent_type,
+                agent_type: sessionAgentType,
                 status: 'blocked',
                 error_message: err instanceof Error ? err.message : String(err)
             });
-
-            // Optionally, we could set agent_status to 'error' or 'blocked' here if agent.run didn't manage to handle the error properly.
-            // Oh wait, we already did via updateAgentSession! Great!
         }
     }
 }

@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { t } from '../i18n/i18n';
 import { useApp } from '../store/AppContext';
-import type { Column, AgentType } from '../types';
+import type { Column, AgentType, CoderType } from '../types';
 import styles from './ColumnConfigModal.module.css';
 import {
     X,
@@ -12,7 +12,7 @@ import {
     Ban,
     ChevronDown
 } from 'lucide-react';
-import { getAgentConfig } from '../constants/agents';
+import { getAgentConfig, CODER_TYPES } from '../constants/agents';
 
 interface ColumnConfigModalProps {
     column: Column;
@@ -25,6 +25,8 @@ export function ColumnConfigModal({ column, boardId, onClose }: ColumnConfigModa
     const config = columnConfigs.find(c => c.column_id === column.id);
 
     const [agentType, setAgentType] = useState<AgentType>(config?.agent_type ?? 'none');
+    const [coderType, setCoderType] = useState<CoderType>(config?.coder_type ?? 'opencode');
+    const [reviewerType, setReviewerType] = useState<CoderType>(config?.reviewer_type ?? 'opencode');
     const [maxAgents, setMaxAgents] = useState(config?.max_agents ?? 1);
     const [reviewMode, setReviewMode] = useState<'pr' | 'local'>(config?.review_mode ?? 'pr');
     const [onFinishColumnId, setOnFinishColumnId] = useState<string>(config?.on_finish_column_id ?? '');
@@ -37,12 +39,14 @@ export function ColumnConfigModal({ column, boardId, onClose }: ColumnConfigModa
     useEffect(() => {
         setIsDirty(
             agentType !== (config?.agent_type ?? 'none') ||
+            coderType !== (config?.coder_type ?? 'opencode') ||
+            reviewerType !== (config?.reviewer_type ?? 'opencode') ||
             maxAgents !== (config?.max_agents ?? 1) ||
             reviewMode !== (config?.review_mode ?? 'pr') ||
             onFinishColumnId !== (config?.on_finish_column_id ?? '') ||
             onRejectColumnId !== (config?.on_reject_column_id ?? '')
         );
-    }, [agentType, maxAgents, reviewMode, onFinishColumnId, onRejectColumnId, config]);
+    }, [agentType, coderType, reviewerType, maxAgents, reviewMode, onFinishColumnId, onRejectColumnId, config]);
 
     useEffect(() => {
         function handleKey(e: KeyboardEvent) {
@@ -58,8 +62,10 @@ export function ColumnConfigModal({ column, boardId, onClose }: ColumnConfigModa
         } else {
             await updateColumnConfig(boardId, column.id, {
                 agentType,
+                coderType: agentType === 'coder' ? coderType : null,
+                reviewerType: agentType === 'code_review' ? reviewerType : null,
                 maxAgents,
-                reviewMode: agentType === 'opencode' ? reviewMode : 'pr',
+                reviewMode: agentType === 'coder' ? reviewMode : 'pr',
                 onFinishColumnId: onFinishColumnId || null,
                 onRejectColumnId: agentType === 'code_review' ? (onRejectColumnId || null) : null
             });
@@ -82,9 +88,9 @@ export function ColumnConfigModal({ column, boardId, onClose }: ColumnConfigModa
                     <div className={styles.formGroup}>
                         <label className={styles.label}>{t('agent.type' as any)}</label>
                         <div className={styles.cardGrid}>
-                            {(['none', 'opencode', 'code_review'] as AgentType[]).map(type => {
+                            {(['none', 'coder', 'code_review'] as AgentType[]).map(type => {
                                 const isActive = agentType === type;
-                                const configForType = type === 'none' ? getAgentConfig('default') : getAgentConfig(type);
+                                const configForType = type === 'none' ? getAgentConfig('default') : type === 'coder' ? getAgentConfig(coderType) : getAgentConfig(type);
                                 return (
                                     <button
                                         key={type}
@@ -97,13 +103,17 @@ export function ColumnConfigModal({ column, boardId, onClose }: ColumnConfigModa
                                             <span className={styles.optionTitle}>
                                                 {type === 'none'
                                                     ? t('agent.none' as any)
-                                                    : configForType.label}
+                                                    : type === 'coder'
+                                                        ? 'Coder'
+                                                        : type === 'code_review'
+                                                            ? 'Reviewer'
+                                                            : configForType.label}
                                             </span>
                                         </div>
                                         <span className={styles.optionSubtitle}>
                                             {type === 'none'
                                                 ? 'No automation for this column'
-                                                : type === 'opencode'
+                                                : type === 'coder'
                                                     ? 'Let the agent implement tickets for you'
                                                     : 'Have an agent review code changes'}
                                         </span>
@@ -113,7 +123,63 @@ export function ColumnConfigModal({ column, boardId, onClose }: ColumnConfigModa
                         </div>
                     </div>
 
-                    {(agentType === 'opencode' || agentType === 'code_review') && (
+                    {agentType === 'coder' && (
+                        <div className={styles.formGroup}>
+                            <label className={styles.label}>Coder type</label>
+                            <div className={styles.cardGrid}>
+                                {CODER_TYPES.map(({ value, label }) => {
+                                    const isActive = coderType === value;
+                                    const configForCoder = getAgentConfig(value);
+                                    return (
+                                        <button
+                                            key={value}
+                                            type="button"
+                                            className={`${styles.optionCard} ${isActive ? styles.optionCardActive : ''}`}
+                                            onClick={() => setCoderType(value)}
+                                        >
+                                            <div className={styles.optionCardHeader}>
+                                                <span className={styles.optionIcon}>{configForCoder.icon}</span>
+                                                <span className={styles.optionTitle}>{label}</span>
+                                            </div>
+                                            <span className={styles.optionSubtitle}>
+                                                {value === 'opencode' ? 'OpenCode agent' : value === 'cursor' ? 'Cursor agent' : label}
+                                            </span>
+                                        </button>
+                                    );
+                                })}
+                            </div>
+                        </div>
+                    )}
+
+                    {agentType === 'code_review' && (
+                        <div className={styles.formGroup}>
+                            <label className={styles.label}>Reviewer type</label>
+                            <div className={styles.cardGrid}>
+                                {CODER_TYPES.map(({ value, label }) => {
+                                    const isActive = reviewerType === value;
+                                    const configForReviewer = getAgentConfig(value);
+                                    return (
+                                        <button
+                                            key={value}
+                                            type="button"
+                                            className={`${styles.optionCard} ${isActive ? styles.optionCardActive : ''}`}
+                                            onClick={() => setReviewerType(value)}
+                                        >
+                                            <div className={styles.optionCardHeader}>
+                                                <span className={styles.optionIcon}>{configForReviewer.icon}</span>
+                                                <span className={styles.optionTitle}>{label}</span>
+                                            </div>
+                                            <span className={styles.optionSubtitle}>
+                                                {value === 'opencode' ? 'OpenCode reviewer' : value === 'cursor' ? 'Cursor reviewer' : label}
+                                            </span>
+                                        </button>
+                                    );
+                                })}
+                            </div>
+                        </div>
+                    )}
+
+                    {(agentType === 'coder' || agentType === 'code_review') && (
                         <>
                             <div className={styles.formGroup}>
                                 <label className={styles.label}>Max Concurrent Agents</label>
@@ -126,7 +192,7 @@ export function ColumnConfigModal({ column, boardId, onClose }: ColumnConfigModa
                                     onChange={(e) => setMaxAgents(parseInt(e.target.value) || 1)}
                                 />
                             </div>
-                            {agentType === 'opencode' && (
+                            {agentType === 'coder' && (
                                 <div className={styles.formGroup}>
                                     <label className={styles.label}>Review Mode</label>
                                     <div className={styles.cardGrid}>

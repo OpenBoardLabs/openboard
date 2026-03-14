@@ -216,7 +216,22 @@ function runMigrations() {
     console.log("[db] Migration: Added review_mode column to column_configs table");
   } catch (e: any) { }
 
+  try {
+    db.run("ALTER TABLE column_configs ADD COLUMN coder_type TEXT;");
+    console.log("[db] Migration: Added coder_type column to column_configs table");
+  } catch (e: any) { }
 
+  // Migrate legacy opencode → coder + coder_type opencode
+  try {
+    db.run("UPDATE column_configs SET coder_type = 'opencode' WHERE agent_type = 'opencode'");
+    db.run("UPDATE column_configs SET agent_type = 'coder' WHERE agent_type = 'opencode'");
+    console.log("[db] Migration: Migrated agent_type opencode → coder with coder_type opencode");
+  } catch (e: any) { }
+
+  try {
+    db.run("ALTER TABLE column_configs ADD COLUMN reviewer_type TEXT;");
+    console.log("[db] Migration: Added reviewer_type column to column_configs table");
+  } catch (e: any) { }
 
   persist();
 }

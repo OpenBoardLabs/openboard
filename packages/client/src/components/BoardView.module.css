@@ -147,3 +147,13 @@
         opacity: 0.4;
     }
 }
+
+.columnDragGhost {
+    width: var(--column-width);
+    height: 320px;
+    background: var(--color-surface-2);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-lg);
+    opacity: 0.85;
+}

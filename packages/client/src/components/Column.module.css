@@ -8,6 +8,15 @@
     max-height: calc(100vh - var(--topbar-height) - 48px);
 }
 
+.column.dragging {
+    border-radius: var(--radius-md);
+    border: 2px dashed var(--color-border);
+    background: var(--color-surface-1);
+    flex-shrink: 0;
+    align-self: flex-start;
+    min-height: min-content;
+}
+
 .header {
     position: relative;
     padding: var(--space-2) var(--space-1) var(--space-4);
