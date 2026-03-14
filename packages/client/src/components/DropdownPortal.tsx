@@ -16,8 +16,16 @@ export function DropdownPortal({ isOpen, onClose, triggerRef, children }: Dropdo
     useEffect(() => {
         if (isOpen && triggerRef.current) {
             const rect = triggerRef.current.getBoundingClientRect();
+            const dropdownHeight = 150;
+            const spaceBelow = window.innerHeight - rect.bottom;
+            const spaceAbove = rect.top;
+            
+            const showAbove = spaceBelow < dropdownHeight && spaceAbove > spaceBelow;
+            
             setCoords({
-                top: rect.bottom + window.scrollY,
+                top: showAbove 
+                    ? rect.top + window.scrollY - dropdownHeight - 4
+                    : rect.bottom + window.scrollY,
                 left: rect.left + window.scrollX,
                 width: rect.width
             });
@@ -30,8 +38,16 @@ export function DropdownPortal({ isOpen, onClose, triggerRef, children }: Dropdo
         function handleScroll() {
             if (triggerRef.current) {
                 const rect = triggerRef.current.getBoundingClientRect();
+                const dropdownHeight = 150;
+                const spaceBelow = window.innerHeight - rect.bottom;
+                const spaceAbove = rect.top;
+                
+                const showAbove = spaceBelow < dropdownHeight && spaceAbove > spaceBelow;
+                
                 setCoords({
-                    top: rect.bottom + window.scrollY,
+                    top: showAbove 
+                        ? rect.top + window.scrollY - dropdownHeight - 4
+                        : rect.bottom + window.scrollY,
                     left: rect.left + window.scrollX,
                     width: rect.width
                 });
