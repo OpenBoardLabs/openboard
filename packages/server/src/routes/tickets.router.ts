@@ -81,7 +81,7 @@ router.put('/:id/move', (req: Request, res: Response) => {
     }
     
     if (fromColumnId !== toColumnId) {
-        abortSession(req.params.id);
+        abortSession(req.params.id, 'moved');
     }
     
     triggerAgent(ticket);
@@ -99,6 +99,18 @@ router.post('/:id/retry', (req: Request, res: Response) => {
     // We pass force=true so that if it is in 'blocked' state, it gets cleared.
     triggerAgent(ticket, true);
     res.status(202).json({ status: 'retrying' });
+});
+
+// POST /api/boards/:boardId/tickets/:id/abort
+router.post('/:id/abort', (req: Request, res: Response) => {
+    const ticket = ticketRepository.findById(req.params.id);
+    if (!ticket) {
+        res.status(404).json({ error: 'Ticket not found' });
+        return;
+    }
+
+    abortSession(req.params.id, 'aborted');
+    res.status(202).json({ status: 'aborting' });
 });
 
 // POST /api/boards/:boardId/tickets/:id/merge

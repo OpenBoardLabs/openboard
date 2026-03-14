@@ -102,7 +102,6 @@ class AgentQueueManager {
                 );
 
                 if (hasActiveSession) {
-                    console.log("hasActiveSession")
                     activeCount++;
                     continue;
                 }

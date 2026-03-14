@@ -128,6 +128,8 @@ export function TicketCard({ ticket, isOverlay }: TicketCardProps) {
 
                         if (!showActiveSession) return null;
 
+                        const isAborted = session.status === 'blocked' && session.error_message?.toLowerCase().includes('aborted');
+
                         return (
                             <button
                                 key={(session?.column_id || 'no-col') + '-' + (session?.started_at || 'no-start')}
@@ -140,11 +142,11 @@ export function TicketCard({ ticket, isOverlay }: TicketCardProps) {
                                 onClick={(e) => handleSessionClick(e, activeSessionIndex)}
                             >
                                 {session.status === 'done' ? <CheckCircle size={10} className={styles.doneIcon} /> :
-                                    session.status === 'blocked' ? <span style={{ color: 'red', fontSize: '10px' }}>⚠️</span> :
+                                    session.status === 'blocked' ? <span style={{ color: isAborted ? '#f97316' : 'red', fontSize: '10px' }}>⚠️</span> :
                                         session.status === 'needs_approval' ? <span style={{ color: '#f59e0b', fontSize: '10px', lineHeight: 1 }}>✋</span> :
                                             React.cloneElement(getAgentConfig(session.agent_type).icon as React.ReactElement, { size: 10 })}
                                 <span>
-                                    {session.status === 'blocked' ? 'Error' :
+                                    {session.status === 'blocked' ? (isAborted ? 'Aborted' : 'Error') :
                                         session.status === 'done' ? 'Done' :
                                             session.status === 'needs_approval' ? 'Needs Approval' :
                                                 session.status === 'processing' ? getAgentConfig(session.agent_type).processingText :

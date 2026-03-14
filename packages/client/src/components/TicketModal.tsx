@@ -134,6 +134,17 @@ export function TicketModal({ ticket, columnId, onClose }: TicketModalProps) {
         }
     };
 
+    const handleAbortAgent = async () => {
+        if (!ticket) return;
+        try {
+            await ticketsApi.abort(ticket.board_id, ticket.id);
+        } catch (err: any) {
+            console.error('Failed to abort agent session:', err);
+            const msg = err.message || 'Unknown error';
+            alert(`Failed to abort agent session: ${msg}`);
+        }
+    };
+
     const column = state.columns.find(c => c.id === (ticket?.column_id ?? columnId));
 
     return (
@@ -176,12 +187,19 @@ export function TicketModal({ ticket, columnId, onClose }: TicketModalProps) {
                                     )}
                                 </div>
                             );
-                            if (session.status === 'blocked') return (
-                                <div key={session.started_at} className={`${styles.statusBadge} ${styles.blocked}`} title="Agent execution failed or blocked">
-                                    <span style={{ color: 'white' }}>⚠️</span>
-                                    Error
-                                </div>
-                            );
+                            if (session.status === 'blocked') {
+                                const isAborted = session.error_message?.toLowerCase().includes('aborted');
+                                return (
+                                    <div
+                                        key={session.started_at}
+                                        className={`${styles.statusBadge} ${styles.blocked}`}
+                                        title={isAborted ? 'Agent session was aborted' : 'Agent execution failed or blocked'}
+                                    >
+                                        <span style={{ color: 'white' }}>⚠️</span>
+                                        {isAborted ? 'Aborted' : 'Error'}
+                                    </div>
+                                );
+                            }
                             if (session.status === 'needs_approval') return (
                                 <div key={session.started_at} className={`${styles.statusBadge} ${styles.needsApproval}`} title="Agent requires user permission">
                                     <span style={{ color: '#f59e0b' }}>✋</span>
@@ -234,6 +252,17 @@ export function TicketModal({ ticket, columnId, onClose }: TicketModalProps) {
                                         >
                                             <RotateCcw size={14} />
                                             <span>Retry Agent</span>
+                                        </button>
+                                    )}
+                                    {session && (session.status === 'processing' || session.status === 'needs_approval') && (
+                                        <button
+                                            className={styles.sessionBtn}
+                                            onClick={handleAbortAgent}
+                                            title="Abort Agent Session"
+                                            style={{ borderColor: '#ef4444', color: '#ef4444' }}
+                                        >
+                                            <X size={14} />
+                                            <span>Abort Agent</span>
                                         </button>
                                     )}
                                     {session?.url && (
