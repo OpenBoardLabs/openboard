@@ -48,6 +48,16 @@
     height: 100%;
 }
 
+.grid.single {
+    display: block;
+}
+
+.grid.single .leftColumn {
+    width: 100%;
+    max-width: 700px;
+    margin: 0 auto;
+}
+
 .leftColumn {
     width: 40%;
     overflow-y: auto;
