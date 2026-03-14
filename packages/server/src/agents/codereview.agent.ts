@@ -21,8 +21,12 @@ export class CodeReviewAgent implements Agent {
         const prUrlSession = [...(latestTicket.agent_sessions || [])].reverse().find(s => s.pr_url);
         const prUrl = prUrlSession?.pr_url;
 
-        if (!prUrl) {
-            console.error(`[codereview-agent] No PR URL found for ticket ${ticket.id}`);
+        // Find worktree path from previous sessions (if PR not available)
+        const worktreeSession = [...(latestTicket.agent_sessions || [])].reverse().find(s => s.worktree_path);
+        const worktreePath = worktreeSession?.worktree_path;
+
+        if (!prUrl && !worktreePath) {
+            console.error(`[codereview-agent] No PR URL or worktree found for ticket ${ticket.id}`);
             ticketRepository.updateAgentSession(ticket.id, {
                 column_id: ticket.column_id,
                 agent_type: 'code_review',
@@ -36,6 +40,21 @@ export class CodeReviewAgent implements Agent {
             });
             return;
         }
+
+        // Determine if we're doing PR review or local worktree review
+        const isLocalReview = !prUrl && worktreePath;
+        let reviewSource: string;
+        let reviewPath: string;
+
+        if (isLocalReview) {
+            reviewSource = 'local worktree';
+            reviewPath = worktreePath!;
+        } else {
+            reviewSource = 'PR';
+            reviewPath = prUrl!;
+        }
+
+        console.log(`[codereview-agent] Starting ${reviewSource} review for ticket ${ticket.id} at ${reviewPath}`);
 
         // Create a board-scoped Opencode client for this ticket
         const board = boardRepository.findById(ticket.board_id);
@@ -57,8 +76,10 @@ export class CodeReviewAgent implements Agent {
             delete activeSessions[ticket.id];
         }
 
-        // Resolve workspace path — code review runs in the main workspace (no new worktree needed).
-        let workspacePath = normalizePathForOS(board?.path || process.cwd());
+        // Resolve workspace path — for local review use worktree path, otherwise use main workspace
+        let workspacePath = isLocalReview 
+            ? normalizePathForOS(worktreePath!) 
+            : normalizePathForOS(board?.path || process.cwd());
 
         try {
             const session = await opencodeClient.session.create({
@@ -111,12 +132,25 @@ export class CodeReviewAgent implements Agent {
                 console.warn(`[codereview-agent] Could not fetch GH token:`, authErr);
             }
 
+            const promptText = isLocalReview
+                ? `# TASK: Code Review for "${ticket.title}"\n\nA local worktree review will be performed. The changes are located at: ${worktreePath}\n\n## Instructions
+1. Run \`git diff HEAD~1 HEAD\` in the worktree directory ${worktreePath} to see what changed.
+2. Analyze the changes for bugs, security issues, best practices, and edge cases.
+3. Review the code directly in the worktree at ${worktreePath}.
+4. Summarize your review directly in this chat.`
+                : `# TASK: Code Review for "${ticket.title}"\n\nThe Pull Request to review is located at: ${prUrl}\n\n## Instructions
+1. Download the diff using \`${ghTokenEnv}gh pr diff ${prUrl}\`.
+2. Analyze the changes for bugs, security issues, best practices, and edge cases.
+3. If the code looks good, leave a comment using \`${ghTokenEnv}gh pr comment ${prUrl} -b "LGTM! [APPROVED]"\`.
+4. If changes are needed, explicitly request changes using \`${ghTokenEnv}gh pr comment ${prUrl} -b "<reason> [CHANGES_REQUESTED]"\`.
+5. Summarize your review directly in this chat.`;
+
             const promptRes = await opencodeClient.session.promptAsync({
                 path: { id: sessionID },
                 body: {
                     parts: [{
                         type: "text",
-                        text: `# TASK: Code Review for "${ticket.title}"\n\nThe Pull Request to review is located at: ${prUrl}\n\n## Instructions\n1. Download the diff using \`${ghTokenEnv}gh pr diff ${prUrl}\`.\n2. Analyze the changes for bugs, security issues, best practices, and edge cases.\n3. If the code looks good, leave a comment using \`${ghTokenEnv}gh pr comment ${prUrl} -b "LGTM! [APPROVED]"\`.\n4. If changes are needed, explicitly request changes using \`${ghTokenEnv}gh pr comment ${prUrl} -b "<reason> [CHANGES_REQUESTED]"\`.\n5. Summarize your review directly in this chat.`
+                        text: promptText
                     }]
                 }
             });
