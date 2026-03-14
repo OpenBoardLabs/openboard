@@ -13,4 +13,4 @@ export const PRIORITIES: PriorityOption[] = [
     { value: 'urgent', labelKey: 'priority.urgent', colorVar: 'var(--color-priority-urgent)' },
 ];
 
-export const API_BASE_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:4199/api';
+export const API_BASE_URL = import.meta.env.VITE_API_URL ?? '/api';

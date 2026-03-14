@@ -7,6 +7,9 @@ import { commentRepository } from '../repositories/comment.repository.js';
 import { setupOpencodeEventListener } from './opencode.events.js';
 import { createBoardScopedClient } from '../utils/opencode.js';
 import { runCmd, normalizePathForOS } from '../utils/os.js';
+import { findFreePort } from '../utils/port.js';
+import { processRegistry } from '../utils/process-registry.js';
+import { spawn } from 'child_process';
 import path from 'path';
 import fs from 'fs';
 
@@ -19,17 +22,21 @@ export class OpencodeAgent implements Agent {
     async run(ticket: Ticket, config: ColumnConfig): Promise<void> {
         console.log(`[opencode-agent] Starting session for ticket ${ticket.id}...`);
 
+        // A. Find an available port for this session early
+        const dynamicPort = await findFreePort(Number(opencodePort));
+        console.log(`[opencode-agent] Selected port ${dynamicPort} for ticket ${ticket.id}`);
+
         // Provide immediate visual feedback on the Frontend
         ticketRepository.updateAgentSession(ticket.id, {
             column_id: ticket.column_id,
             agent_type: 'opencode',
             status: 'processing',
-            port: Number(opencodePort)
+            port: dynamicPort
         });
 
         // Create a board-scoped Opencode client for this ticket
+        // (Will be re-created later once we have the dynamic port)
         const board = boardRepository.findById(ticket.board_id);
-        const opencodeClient = createBoardScopedClient(board?.path);
 
         // Prevent duplicate runs blocking new requests: replace the old session.
 
@@ -114,6 +121,24 @@ export class OpencodeAgent implements Agent {
 
         // 3. Initialize Task
         try {
+            // B. Spawn `opencode serve` in the worktree
+            const serverProcess = spawn('opencode', ['serve', '--port', dynamicPort.toString()], {
+                cwd: worktreePath,
+                env: { ...process.env, OPENCODE_PORT: dynamicPort.toString() },
+                stdio: 'ignore', // Let it run in background silently
+                detached: true
+            });
+            serverProcess.unref();
+
+            // Register the process so it can be killed later
+            processRegistry.register(ticket.id, serverProcess);
+
+            // Wait a moment for server to start
+            await new Promise(r => setTimeout(r, 2000));
+
+            // C. Create the client for this specific port
+            const opencodeClient = createBoardScopedClient(worktreePath, dynamicPort);
+
             // Create session
             const session = await opencodeClient.session.create({
                 body: {
@@ -130,14 +155,14 @@ export class OpencodeAgent implements Agent {
             activeSessions[ticket.id] = sessionID;
 
             // Compute exact OpenCode Tracking URL
-            const encodedPath = Buffer.from(originalWorkspacePath).toString('base64url');
-            const agentUrl = `http://127.0.0.1:${opencodePort}/${encodedPath}/session/${sessionID}`;
+            const encodedPath = Buffer.from(worktreePath).toString('base64url');
+            const agentUrl = `http://127.0.0.1:${dynamicPort}/${encodedPath}/session/${sessionID}`;
 
             ticketRepository.updateAgentSession(ticket.id, {
                 column_id: ticket.column_id,
                 agent_type: 'opencode',
                 status: 'processing',
-                port: Number(opencodePort),
+                port: dynamicPort,
                 url: agentUrl
             });
 
@@ -155,7 +180,9 @@ export class OpencodeAgent implements Agent {
                 activeSessions,
                 worktreePath,
                 originalWorkspacePath,
-                branchName
+                branchName,
+                'opencode',
+                dynamicPort
             );
             // ------------------------------------------
 

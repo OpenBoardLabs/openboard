@@ -189,7 +189,7 @@ export function TicketCard({ ticket, isOverlay }: TicketCardProps) {
                         return (
                             <React.Fragment key={(session?.column_id || 'no-col') + '-' + (session?.started_at || 'no-start')}>
                                 <a
-                                    href={session.url || `http://127.0.0.1:${session.port || 4096}`}
+                                    href={session.url || `http://127.0.0.1:${session.port}`}
                                     target="_blank"
                                     rel="noopener noreferrer"
                                     className={`${styles.inspectBtn} ${session.status === 'processing' ? styles.processingBtn :

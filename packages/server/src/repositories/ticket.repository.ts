@@ -8,19 +8,6 @@ function parseTicket(row: any): Ticket {
     if (row.agent_sessions) {
         try {
             agent_sessions = JSON.parse(row.agent_sessions);
-            // Patch opencode sessions with the current port if it changed on restart
-            const currentPort = process.env.OPENCODE_PORT || '4096';
-            agent_sessions = agent_sessions.map((session: any) => {
-                if (session.agent_type === 'opencode') {
-                    if (session.port && String(session.port) !== String(currentPort)) {
-                        session.port = Number(currentPort);
-                    }
-                    if (session.url) {
-                        session.url = session.url.replace(/:\d+\//, `:${currentPort}/`);
-                    }
-                }
-                return session;
-            });
         } catch { }
     }
     return {

@@ -6,6 +6,9 @@ import { commentRepository } from '../repositories/comment.repository.js';
 import { setupOpencodeEventListener } from './opencode.events.js';
 import { createBoardScopedClient } from '../utils/opencode.js';
 import { runCmd, normalizePathForOS } from '../utils/os.js';
+import { findFreePort } from '../utils/port.js';
+import { processRegistry } from '../utils/process-registry.js';
+import { spawn } from 'child_process';
 
 const opencodePort = process.env.OPENCODE_PORT || 4096;
 const activeSessions: Record<string, string> = {};
@@ -13,6 +16,10 @@ const activeSessions: Record<string, string> = {};
 export class CodeReviewAgent implements Agent {
     async run(ticket: Ticket, config: ColumnConfig): Promise<void> {
         console.log(`[codereview-agent] Starting session for ticket ${ticket.id}...`);
+
+        // Find an available port for this session early
+        const dynamicPort = await findFreePort(Number(opencodePort));
+        console.log(`[codereview-agent] Selected port ${dynamicPort} for ticket ${ticket.id}`);
 
         // Fetch the absolute latest ticket from the DB to ensure we have the latest session history (with PR URLs)
         const latestTicket = ticketRepository.findById(ticket.id) || ticket;
@@ -57,15 +64,38 @@ export class CodeReviewAgent implements Agent {
         console.log(`[codereview-agent] Starting ${reviewSource} review for ticket ${ticket.id} at ${reviewPath}`);
 
         // Create a board-scoped Opencode client for this ticket
+        // (Will be re-created later once we have the dynamic port)
         const board = boardRepository.findById(ticket.board_id);
-        const opencodeClient = createBoardScopedClient(board?.path);
 
         ticketRepository.updateAgentSession(ticket.id, {
             column_id: ticket.column_id,
             agent_type: 'code_review',
             status: 'processing',
-            port: Number(opencodePort)
+            port: dynamicPort
         });
+
+        // Resolve workspace path — for local review use worktree path, otherwise use main workspace
+        let workspacePath = isLocalReview 
+            ? normalizePathForOS(worktreePath!) 
+            : normalizePathForOS(board?.path || process.cwd());
+
+        // B. Spawn `opencode serve` in the review path
+        const serverProcess = spawn('opencode', ['serve', '--port', dynamicPort.toString()], {
+            cwd: workspacePath,
+            env: { ...process.env, OPENCODE_PORT: dynamicPort.toString() },
+            stdio: 'ignore', // Let it run in background silently
+            detached: true
+        });
+        serverProcess.unref();
+
+        // Register the process so it can be killed later
+        processRegistry.register(ticket.id, serverProcess);
+
+        // Wait a moment for server to start
+        await new Promise(r => setTimeout(r, 2000));
+
+        // C. Create the client for this specific port
+        const opencodeClient = createBoardScopedClient(workspacePath, dynamicPort);
 
         if (activeSessions[ticket.id]) {
             try {
@@ -75,11 +105,6 @@ export class CodeReviewAgent implements Agent {
             }
             delete activeSessions[ticket.id];
         }
-
-        // Resolve workspace path — for local review use worktree path, otherwise use main workspace
-        let workspacePath = isLocalReview 
-            ? normalizePathForOS(worktreePath!) 
-            : normalizePathForOS(board?.path || process.cwd());
 
         try {
             const session = await opencodeClient.session.create({
@@ -93,13 +118,13 @@ export class CodeReviewAgent implements Agent {
             activeSessions[ticket.id] = sessionID;
 
             const encodedPath = Buffer.from(workspacePath).toString('base64url');
-            const agentUrl = `http://127.0.0.1:${opencodePort}/${encodedPath}/session/${sessionID}`;
+            const agentUrl = `http://127.0.0.1:${dynamicPort}/${encodedPath}/session/${sessionID}`;
 
             ticketRepository.updateAgentSession(ticket.id, {
                 column_id: ticket.column_id,
                 agent_type: 'code_review',
                 status: 'processing',
-                port: Number(opencodePort),
+                port: dynamicPort,
                 url: agentUrl
             });
 
@@ -118,7 +143,8 @@ export class CodeReviewAgent implements Agent {
                 workspacePath,   // worktreePath — main workspace for gh commands
                 workspacePath,   // originalWorkspacePath — same here, no separate worktree
                 '',              // branchName — no branch created for code review
-                'code_review'
+                'code_review',
+                dynamicPort
             );
 
             // Fetch GH token so the LLM environment can execute `gh` commands
@@ -137,13 +163,13 @@ export class CodeReviewAgent implements Agent {
 1. Run \`git diff HEAD~1 HEAD\` in the worktree directory ${worktreePath} to see what changed.
 2. Analyze the changes for bugs, security issues, best practices, and edge cases.
 3. Review the code directly in the worktree at ${worktreePath}.
-4. Summarize your review directly in this chat.`
+4. Summarize your review directly in this chat. **IMPORTANT: Your summary MUST include either \`[APPROVED]\` (if the changes look good) or \`[CHANGES_REQUESTED]\` (if updates are needed) so that the ticket can be automatically moved.**`
                 : `# TASK: Code Review for "${ticket.title}"\n\nThe Pull Request to review is located at: ${prUrl}\n\n## Instructions
 1. Download the diff using \`${ghTokenEnv}gh pr diff ${prUrl}\`.
 2. Analyze the changes for bugs, security issues, best practices, and edge cases.
 3. If the code looks good, leave a comment using \`${ghTokenEnv}gh pr comment ${prUrl} -b "LGTM! [APPROVED]"\`.
 4. If changes are needed, explicitly request changes using \`${ghTokenEnv}gh pr comment ${prUrl} -b "<reason> [CHANGES_REQUESTED]"\`.
-5. Summarize your review directly in this chat.`;
+5. Summarize your review directly in this chat. **IMPORTANT: Your summary MUST include either \`[APPROVED]\` or \`[CHANGES_REQUESTED]\` so that the ticket can be automatically moved.**`;
 
             const promptRes = await opencodeClient.session.promptAsync({
                 path: { id: sessionID },

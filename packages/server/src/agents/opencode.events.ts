@@ -4,6 +4,7 @@ import { agentQueue } from './agent-queue.js';
 import type { Ticket, ColumnConfig } from '../types.js';
 import { runCmd, normalizePathForOS, getGhToken } from '../utils/os.js';
 import { createBoardScopedClient } from '../utils/opencode.js';
+import { processRegistry } from '../utils/process-registry.js';
 import fs from 'fs';
 
 export async function setupOpencodeEventListener(
@@ -17,9 +18,10 @@ export async function setupOpencodeEventListener(
     worktreePath: string,
     originalWorkspacePath: string,
     branchName: string,
-    agentType: 'opencode' | 'code_review' = 'opencode'
+    agentType: 'opencode' | 'code_review' = 'opencode',
+    port: number
 ) {
-    const opencodeClient = createBoardScopedClient(originalWorkspacePath);
+    const opencodeClient = createBoardScopedClient(worktreePath, port);
     const processedMessages = new Set<string>();
     const activeParts = new Map<string, { commentId: string, fullText: string }>();
     let rawSessionCost = 0;
@@ -66,7 +68,7 @@ export async function setupOpencodeEventListener(
                     column_id: ticket.column_id,
                     agent_type: agentType,
                     status: 'needs_approval',
-                    port: 4096,
+                    port: port,
                     url: agentUrl
                 });
             }
@@ -79,7 +81,7 @@ export async function setupOpencodeEventListener(
                     column_id: ticket.column_id,
                     agent_type: agentType,
                     status: 'processing',
-                    port: 4096,
+                    port: port,
                     url: agentUrl
                 });
             }
@@ -106,7 +108,7 @@ export async function setupOpencodeEventListener(
                         column_id: ticket.column_id,
                         agent_type: agentType,
                         status: 'blocked',
-                        port: 4096,
+                        port: port,
                         url: agentUrl,
                         error_message: err.data?.message || err.name
                     });
@@ -174,7 +176,7 @@ export async function setupOpencodeEventListener(
                             column_id: ticket.column_id,
                             agent_type: agentType,
                             status: 'done',
-                            port: 4096,
+                            port: port,
                             url: agentUrl,
                             total_cost: rawSessionCost > 0 ? Number(rawSessionCost.toFixed(4)) : undefined
                         });
@@ -184,34 +186,19 @@ export async function setupOpencodeEventListener(
                             const latestTicket = ticketRepository.findById(ticket.id) || ticket;
                             const prUrlSession = [...(latestTicket.agent_sessions || [])].reverse().find(s => s.pr_url);
                             const prUrl = prUrlSession?.pr_url;
+                            
+                            // Find the latest comment that contains a decision
+                            let reviewDecision = 'NONE';
+
+                            // 1. Check GitHub PR comments First (if PR exists)
                             if (prUrl) {
-                                const { stdout: prStatus } = await runCmd('gh', ['pr', 'view', prUrl, '--json', 'comments'], worktreePath, 'opencode-events');
-                                const comments = JSON.parse(prStatus).comments;
+                                try {
+                                    const { stdout: prStatus } = await runCmd('gh', ['pr', 'view', prUrl, '--json', 'comments'], worktreePath, 'opencode-events');
+                                    const comments = JSON.parse(prStatus).comments;
 
-                                // Find the latest comment that contains a decision
-                                let reviewDecision = 'NONE';
-
-                                // 1. Check GitHub PR comments First
-                                if (comments && comments.length > 0) {
-                                    for (const comment of [...comments].reverse()) {
-                                        const bodyLower = comment.body.toLowerCase();
-                                        if (bodyLower.includes('[approved]') || bodyLower.includes('approve the pr') || bodyLower.includes('lgtm') || bodyLower.includes('approved')) {
-                                            reviewDecision = 'APPROVED';
-                                            break;
-                                        }
-                                        if (bodyLower.includes('[changes_requested]') || bodyLower.includes('request changes') || bodyLower.includes('changes requested') || bodyLower.includes('changes are needed')) {
-                                            reviewDecision = 'CHANGES_REQUESTED';
-                                            break;
-                                        }
-                                    }
-                                }
-
-                                // 2. Fallback to Local Chat Logs
-                                if (reviewDecision === 'NONE') {
-                                    const localDbComments = commentRepository.findByTicketId(ticket.id);
-                                    if (localDbComments && localDbComments.length > 0) {
-                                        for (const dbC of [...localDbComments].reverse()) {
-                                            const bodyLower = dbC.content.toLowerCase();
+                                    if (comments && comments.length > 0) {
+                                        for (const comment of [...comments].reverse()) {
+                                            const bodyLower = comment.body.toLowerCase();
                                             if (bodyLower.includes('[approved]') || bodyLower.includes('approve the pr') || bodyLower.includes('lgtm') || bodyLower.includes('approved')) {
                                                 reviewDecision = 'APPROVED';
                                                 break;
@@ -222,38 +209,58 @@ export async function setupOpencodeEventListener(
                                             }
                                         }
                                     }
+                                } catch (prErr) {
+                                    console.warn(`[codereview-agent] Could not fetch PR comments for decision parsing:`, prErr);
                                 }
+                            }
 
-                                console.log(`[codereview-agent] PR ${prUrl} review decision parsed from comments: ${reviewDecision}`);
-
-                                if (reviewDecision === 'APPROVED') {
-                                    updateSessionComment(`✅ **Code Review Approved!**\n\nThe agent approved the PR.`, 'status');
-
-                                    // Move ticket to the configured destination column (if set)
-                                    if (config.on_finish_column_id) {
-                                        console.log(`[codereview-agent] Moving ticket ${ticket.id} forward to column ${config.on_finish_column_id}`);
-                                        const moved = ticketRepository.move(ticket.id, config.on_finish_column_id, 0);
-                                        if (moved) {
-                                            // Trigger via the queue so concurrency/priority rules are respected
-                                            agentQueue.evaluateColumnQueue(config.on_finish_column_id);
+                            // 2. Fallback to Local Chat Logs (Crucial for local reviews or if PR fetch failed)
+                            if (reviewDecision === 'NONE') {
+                                const localDbComments = commentRepository.findByTicketId(ticket.id);
+                                if (localDbComments && localDbComments.length > 0) {
+                                    for (const dbC of [...localDbComments].reverse()) {
+                                        const bodyLower = dbC.content.toLowerCase();
+                                        if (bodyLower.includes('[approved]') || bodyLower.includes('approve the pr') || bodyLower.includes('lgtm') || bodyLower.includes('approved')) {
+                                            reviewDecision = 'APPROVED';
+                                            break;
+                                        }
+                                        if (bodyLower.includes('[changes_requested]') || bodyLower.includes('request changes') || bodyLower.includes('changes requested') || bodyLower.includes('changes are needed')) {
+                                            reviewDecision = 'CHANGES_REQUESTED';
+                                            break;
                                         }
                                     }
-                                } else if (reviewDecision === 'CHANGES_REQUESTED') {
-                                    updateSessionComment(`⚠️ **Changes Requested**\n\nThe agent has requested changes on the PR. Sending ticket back for revision.`, 'status');
+                                }
+                            }
 
-                                    if (config.on_reject_column_id) {
-                                        console.log(`[codereview-agent] Moving ticket ${ticket.id} back to configured reject column ${config.on_reject_column_id}`);
-                                        const moved = ticketRepository.move(ticket.id, config.on_reject_column_id, 0);
-                                        if (moved) {
-                                            // Use force=true so the dev agent will re-run even though it previously finished 'done'
-                                            agentQueue.enqueue(moved.id, true);
-                                        }
-                                    } else {
-                                        console.warn(`[codereview-agent] Ticket ${ticket.id} rejected, but no 'on_reject_column_id' is configured!`);
+                            console.log(`[codereview-agent] Code review decision parsed: ${reviewDecision} (Source: ${prUrl ? 'PR' : 'Local Chat'})`);
+
+                            if (reviewDecision === 'APPROVED') {
+                                updateSessionComment(`✅ **Code Review Approved!**\n\nThe agent approved the changes.`, 'status');
+
+                                // Move ticket to the configured destination column (if set)
+                                if (config.on_finish_column_id) {
+                                    console.log(`[codereview-agent] Moving ticket ${ticket.id} forward to column ${config.on_finish_column_id}`);
+                                    const moved = ticketRepository.move(ticket.id, config.on_finish_column_id, 0);
+                                    if (moved) {
+                                        // Trigger via the queue so concurrency/priority rules are respected
+                                        agentQueue.evaluateColumnQueue(config.on_finish_column_id);
+                                    }
+                                }
+                            } else if (reviewDecision === 'CHANGES_REQUESTED') {
+                                updateSessionComment(`⚠️ **Changes Requested**\n\nThe agent has requested changes. Sending ticket back for revision.`, 'status');
+
+                                if (config.on_reject_column_id) {
+                                    console.log(`[codereview-agent] Moving ticket ${ticket.id} back to configured reject column ${config.on_reject_column_id}`);
+                                    const moved = ticketRepository.move(ticket.id, config.on_reject_column_id, 0);
+                                    if (moved) {
+                                        // Use force=true so the dev agent will re-run even though it previously finished 'done'
+                                        agentQueue.enqueue(moved.id, true);
                                     }
                                 } else {
-                                    updateSessionComment(`ℹ️ **Code Review Finished**\n\nThe review was completed, but no explicit approval or changes were requested.`, 'status');
+                                    console.warn(`[codereview-agent] Ticket ${ticket.id} rejected, but no 'on_reject_column_id' is configured!`);
                                 }
+                            } else {
+                                updateSessionComment(`ℹ️ **Code Review Finished**\n\nThe review was completed, but no explicit approval or changes were requested.`, 'status');
                             }
                         } catch (err: any) {
                             console.error(`[codereview-agent] Error handling post-review logic`, err);
@@ -309,7 +316,7 @@ export async function setupOpencodeEventListener(
                                     column_id: ticket.column_id,
                                     agent_type: 'opencode',
                                     status: 'done',
-                                    port: 4096,
+                                    port: port,
                                     url: agentUrl,
                                     pr_url: prUrl,
                                     worktree_path: config.review_mode === 'local' ? worktreePath : undefined,
@@ -334,7 +341,7 @@ export async function setupOpencodeEventListener(
                                     column_id: ticket.column_id,
                                     agent_type: 'opencode',
                                     status: 'done',
-                                    port: 4096,
+                                    port: port,
                                     url: agentUrl,
                                     total_cost: rawSessionCost > 0 ? Number(rawSessionCost.toFixed(4)) : undefined
                                 });
@@ -360,7 +367,7 @@ export async function setupOpencodeEventListener(
                                 column_id: ticket.column_id,
                                 agent_type: 'opencode',
                                 status: 'done',
-                                port: 4096,
+                                port: port,
                                 url: agentUrl,
                                 worktree_path: worktreePath,
                                 total_cost: rawSessionCost > 0 ? Number(rawSessionCost.toFixed(4)) : undefined
@@ -383,8 +390,9 @@ export async function setupOpencodeEventListener(
 
                 // Clean up the server instance tracking after a brief delay
                 setTimeout(() => {
-                    console.log(`[opencode-agent] Cleaning up tracking for ${ticket.id}`);
+                    console.log(`[opencode-agent] Cleaning up tracking and process for ${ticket.id}`);
                     delete activeSessions[ticket.id];
+                    processRegistry.kill(ticket.id);
                 }, 60000); // 1 minute cleanup
             }
 

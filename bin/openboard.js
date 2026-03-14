@@ -182,7 +182,7 @@ async function main() {
         
         setTimeout(async () => {
             const currentPath = process.cwd();
-            let port = process.env.PORT;
+            let port = process.env.OPENBOARD_PORT || process.env.PORT;
             try {
                 const healthRes = await fetch(`http://localhost:${port}/api/health`);
                 if (healthRes.ok) {

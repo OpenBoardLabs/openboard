@@ -78,6 +78,7 @@ async function start() {
     server.on('listening', () => {
         const address = server.address();
         actualPort = typeof address === 'string' ? parseInt(address) : (address?.port ?? parseInt(String(PORT)));
+        process.env.OPENBOARD_PORT = String(actualPort);
         console.log(`[openboard] Server running at http://localhost:${actualPort}`);
     });
 

@@ -35,6 +35,20 @@ export function TicketModal({ ticket, columnId, onClose }: TicketModalProps) {
     const [isMerging, setIsMerging] = useState(false);
     const [isDiffOpen, setIsDiffOpen] = useState(false);
     const worktreeTriggerRef = useRef<HTMLDivElement>(null);
+    const commentsEndRef = useRef<HTMLDivElement>(null);
+
+    const scrollToBottom = () => {
+        commentsEndRef.current?.scrollIntoView({ behavior: 'auto' });
+    };
+
+    useEffect(() => {
+        if (ticketComments.length > 0) {
+            // Use requestAnimationFrame or a small timeout to ensure DOM is updated
+            requestAnimationFrame(() => {
+                scrollToBottom();
+            });
+        }
+    }, [ticketComments]);
 
     const handleMerge = async () => {
         if (!ticket || isMerging) return;
@@ -292,169 +306,164 @@ export function TicketModal({ ticket, columnId, onClose }: TicketModalProps) {
                 </div>
 
                 <div className={styles.content}>
-                    <div className={styles.body}>
+                    <div className={styles.grid}>
+                        <div className={styles.leftColumn}>
+                            <div className={styles.body}>
+                                {/* Title */}
+                                <textarea
+                                    className={styles.titleInput}
+                                    value={title}
+                                    onChange={e => { setTitle(e.target.value); }}
+                                    placeholder={t('ticket.title_placeholder')}
+                                    rows={1}
+                                />
 
-
-
-                        {/* Title */}
-                        <textarea
-                            className={styles.titleInput}
-                            value={title}
-                            onChange={e => { setTitle(e.target.value); }}
-                            placeholder={t('ticket.title_placeholder')}
-                            rows={1}
-                        />
-
-                        {/* Description */}
-                        <textarea
-                            className={styles.descInput}
-                            value={description}
-                            onChange={e => setDescription(e.target.value)}
-                            placeholder={t('ticket.description_placeholder')}
-                            rows={6}
-                        />
-                    </div>
-
-                    {/* Priority picker */}
-                    <div className={styles.section}>
-                        <span className={styles.sectionLabel}>{t('ticket.priority')}</span>
-                        <div className={styles.priorities}>
-                            {PRIORITIES.map(p => (
-                                <button
-                                    key={p.value}
-                                    className={`${styles.priorityBtn} ${priority === p.value ? styles.selected : ''}`}
-                                    style={{ '--priority-color': p.colorVar } as React.CSSProperties}
-                                    onClick={() => setPriority(p.value as Priority)}
-                                >
-                                    {t(p.labelKey as Parameters<typeof t>[0])}
-                                </button>
-                            ))}
-                        </div>
-                    </div>
-
-                    {/* Agent History */}
-                    {ticket && ticket.agent_sessions && ticket.agent_sessions.length > 0 && (
-                        <div className={styles.section}>
-                            <div className={styles.historyHeader}>
-                                <span className={styles.sectionLabel}>
-                                    Agent History
-                                </span>
-                                <span className={styles.historyTotalCost}>
-                                    Total: ${ticket.agent_sessions.reduce((sum, s) => sum + (s.total_cost || 0), 0).toFixed(2)}
-                                </span>
+                                {/* Description */}
+                                <textarea
+                                    className={styles.descInput}
+                                    value={description}
+                                    onChange={e => setDescription(e.target.value)}
+                                    placeholder={t('ticket.description_placeholder')}
+                                    rows={8}
+                                />
                             </div>
-                            <div className={styles.agentHistoryList}>
-                                {ticket.agent_sessions.map((session, idx) => {
-                                    const colName = state.columns.find(c => c.id === session.column_id)?.name || 'Unknown Step';
-                                    return (
-                                        <div key={idx} className={styles.historyItem}>
-                                            <div className={styles.historyMain}>
-                                                <div className={styles.historyDetails}>
-                                                    <span className={styles.historyCol}>{colName}</span>
-                                                    <div className={styles.historyLinks}>
-                                                        {(session.url || session.port) && (
-                                                            <a
-                                                                href={session.url || `http://127.0.0.1:${session.port}`}
-                                                                target="_blank"
-                                                                rel="noopener noreferrer"
-                                                                className={styles.historyLink}
-                                                            >
-                                                                Session Link <ExternalLink size={12} />
-                                                            </a>
-                                                        )}
-                                                        {session.pr_url && (
-                                                            <a
-                                                                href={session.pr_url}
-                                                                target="_blank"
-                                                                rel="noopener noreferrer"
-                                                                className={styles.historyLink}
-                                                                style={{ color: '#2da44e' }}
-                                                            >
-                                                                Code Review <GitPullRequest size={12} />
-                                                            </a>
-                                                        )}
+
+                            {/* Priority picker */}
+                            <div className={styles.section}>
+                                <span className={styles.sectionLabel}>{t('ticket.priority')}</span>
+                                <div className={styles.priorities}>
+                                    {PRIORITIES.map(p => (
+                                        <button
+                                            key={p.value}
+                                            className={`${styles.priorityBtn} ${priority === p.value ? styles.selected : ''}`}
+                                            style={{ '--priority-color': p.colorVar } as React.CSSProperties}
+                                            onClick={() => setPriority(p.value as Priority)}
+                                        >
+                                            {t(p.labelKey as Parameters<typeof t>[0])}
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+
+                            {/* Agent History */}
+                            {ticket && ticket.agent_sessions && ticket.agent_sessions.length > 0 && (
+                                <div className={styles.section}>
+                                    <div className={styles.historyHeader}>
+                                        <span className={styles.sectionLabel}>
+                                            Agent History
+                                        </span>
+                                        <span className={styles.historyTotalCost}>
+                                            ${ticket.agent_sessions.reduce((sum, s) => sum + (s.total_cost || 0), 0).toFixed(2)}
+                                        </span>
+                                    </div>
+                                    <div className={styles.agentHistoryList}>
+                                        {ticket.agent_sessions.map((session, idx) => {
+                                            const colName = state.columns.find(c => c.id === session.column_id)?.name || 'Unknown Step';
+                                            return (
+                                                <div key={idx} className={styles.historyItem}>
+                                                    <div className={styles.historyMain}>
+                                                        <div className={styles.historyDetails}>
+                                                            <span className={styles.historyCol}>{colName}</span>
+                                                            <div className={styles.historyLinks}>
+                                                                {(session.url || session.port) && (
+                                                                    <a
+                                                                        href={session.url || `http://127.0.0.1:${session.port}`}
+                                                                        target="_blank"
+                                                                        rel="noopener noreferrer"
+                                                                        className={styles.historyLink}
+                                                                    >
+                                                                        Link <ExternalLink size={12} />
+                                                                    </a>
+                                                                )}
+                                                                {session.pr_url && (
+                                                                    <a
+                                                                        href={session.pr_url}
+                                                                        target="_blank"
+                                                                        rel="noopener noreferrer"
+                                                                        className={styles.historyLink}
+                                                                        style={{ color: '#2da44e' }}
+                                                                    >
+                                                                        PR <GitPullRequest size={12} />
+                                                                    </a>
+                                                                )}
+                                                            </div>
+                                                        </div>
+                                                        <div className={styles.historyStatusAndCost}>
+                                                            <span className={`${styles.historyStatus} ${styles[session.status] || ''}`}>
+                                                                {getAgentConfig(session.agent_type).icon}
+                                                            </span>
+                                                            {session.total_cost !== undefined && session.total_cost > 0 && (
+                                                                <span className={styles.historyCost}>${session.total_cost.toFixed(2)}</span>
+                                                            )}
+                                                        </div>
                                                     </div>
                                                 </div>
-                                                <div className={styles.historyStatusAndCost}>
-                                                    <span className={`${styles.historyStatus} ${styles[session.status] || ''}`}>
-                                                        <span style={{ marginRight: '4px', display: 'inline-flex', verticalAlign: 'middle' }}>
-                                                            {getAgentConfig(session.agent_type).icon}
-                                                        </span>
-                                                        {session.status === 'needs_approval' ? 'Needs Approval' : session.status}
+                                            );
+                                        })}
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+
+                        <div className={styles.rightColumn}>
+                            {/* Comments Section */}
+                            {ticket && (
+                                <div className={styles.commentsSection}>
+                                    <div className={styles.sectionLabel} style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                        <MessageSquare size={14} />
+                                        {t('ticket.comments' as any)}
+                                    </div>
+
+                                    <div className={styles.commentList}>
+                                        {ticketComments.map(c => (
+                                            <div key={c.id} className={styles.comment}>
+                                                <div className={styles.commentHeader}>
+                                                    <span className={styles.commentAuthor}>
+                                                        {c.author === 'user' ? 'You' : (
+                                                            <>
+                                                                <span style={{ marginRight: '4px', display: 'inline-flex', verticalAlign: 'middle' }}>
+                                                                    {getAgentConfigByAuthor(c.author).icon}
+                                                                </span>
+                                                                {c.author}
+                                                            </>
+                                                        )}
                                                     </span>
-                                                    {session.total_cost !== undefined && session.total_cost > 0 && (
-                                                        <span className={styles.historyCost}>${session.total_cost.toFixed(2)}</span>
-                                                    )}
+                                                    <span className={styles.commentDate}>
+                                                        {new Date(c.created_at).toLocaleString()}
+                                                    </span>
+                                                </div>
+                                                <div className={styles.commentContent}>
+                                                    <ReactMarkdown>{c.content}</ReactMarkdown>
                                                 </div>
                                             </div>
-                                            {session.error_message && (
-                                                <div className={styles.historyError}>
-                                                    {session.error_message}
-                                                </div>
-                                            )}
-                                        </div>
-                                    );
-                                })}
-                            </div>
-                        </div>
-                    )}
-
-                    {/* Comments Section */}
-                    {ticket && (
-                        <div className={styles.commentsSection}>
-
-                            <div className={styles.sectionLabel} style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                <MessageSquare size={14} />
-                                {t('ticket.comments' as any)}
-                            </div>
-
-                            <div className={styles.commentList}>
-                                {ticketComments.map(c => (
-                                    <div key={c.id} className={styles.comment}>
-                                        <div className={styles.commentHeader}>
-                                            <span className={styles.commentAuthor}>
-                                                {c.author === 'user' ? 'You' : (
-                                                    <>
-                                                        <span style={{ marginRight: '4px', display: 'inline-flex', verticalAlign: 'middle' }}>
-                                                            {getAgentConfigByAuthor(c.author).icon}
-                                                        </span>
-                                                        {c.author}
-                                                    </>
-                                                )}
-                                            </span>
-                                            <span className={styles.commentDate}>
-                                                {new Date(c.created_at).toLocaleString()}
-                                            </span>
-                                        </div>
-                                        <div className={styles.commentContent}>
-                                            <ReactMarkdown>{c.content}</ReactMarkdown>
-                                        </div>
+                                        ))}
+                                        {ticketComments.length === 0 && (
+                                            <div className={styles.noComments}>{t('ticket.no_comments' as any)}</div>
+                                        )}
+                                        <div ref={commentsEndRef} />
                                     </div>
-                                ))}
-                                {ticketComments.length === 0 && (
-                                    <div className={styles.noComments}>{t('ticket.no_comments' as any)}</div>
-                                )}
-                            </div>
 
-                            <div className={styles.addComment}>
-                                <input
-                                    type="text"
-                                    className={styles.commentInput}
-                                    value={newComment}
-                                    onChange={e => setNewComment(e.target.value)}
-                                    onKeyDown={e => e.key === 'Enter' && handleAddComment()}
-                                    placeholder={t('ticket.add_comment_placeholder' as any)}
-                                />
-                                <button
-                                    className={styles.sendBtn}
-                                    onClick={handleAddComment}
-                                    disabled={!newComment.trim()}
-                                >
-                                    <Send size={14} />
-                                </button>
-                            </div>
+                                    <div className={styles.addComment}>
+                                        <input
+                                            type="text"
+                                            className={styles.commentInput}
+                                            value={newComment}
+                                            onChange={e => setNewComment(e.target.value)}
+                                            onKeyDown={e => e.key === 'Enter' && handleAddComment()}
+                                            placeholder={t('ticket.add_comment_placeholder' as any)}
+                                        />
+                                        <button
+                                            className={styles.sendBtn}
+                                            onClick={handleAddComment}
+                                            disabled={!newComment.trim()}
+                                        >
+                                            <Send size={14} />
+                                        </button>
+                                    </div>
+                                </div>
+                            )}
                         </div>
-                    )}
+                    </div>
                 </div>
                 {/* Footer */}
                 <div className={styles.footer}>
