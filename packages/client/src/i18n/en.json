@@ -22,7 +22,6 @@
     "column.settings": "Column settings",
     "agent.type": "Agent Type",
     "agent.none": "None",
-    "agent.dummy": "Dummy Agent",
     "agent.on_finish": "On Finish",
     "agent.do_nothing": "Do nothing",
     "agent.move_to": "Move to",

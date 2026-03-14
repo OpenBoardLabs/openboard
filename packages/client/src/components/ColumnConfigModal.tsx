@@ -76,7 +76,6 @@ export function ColumnConfigModal({ column, boardId, onClose }: ColumnConfigModa
                             onChange={(e) => setAgentType(e.target.value as AgentType)}
                         >
                             <option value="none">{t('agent.none' as any)}</option>
-                            <option value="dummy">{t('agent.dummy' as any)}</option>
                             <option value="opencode">OpenCode Agent</option>
                             <option value="code_review">Code Review Agent</option>
                         </select>

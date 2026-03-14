@@ -1,6 +1,6 @@
 // Shared types between server and client (duplicated intentionally for zero-dep simplicity)
 
-export type AgentType = 'dummy' | 'none' | 'opencode' | 'code_review';
+export type AgentType = 'none' | 'opencode' | 'code_review';
 
 export type Priority = 'low' | 'medium' | 'high' | 'urgent';
 

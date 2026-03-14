@@ -1,4 +1,4 @@
-import { Bot, Code2, Eye, Terminal } from 'lucide-react';
+import { Bot, Code2, Eye } from 'lucide-react';
 import React from 'react';
 
 export interface AgentUIConfig {
@@ -21,12 +21,6 @@ export const AGENT_CONFIGS: Record<string, AgentUIConfig> = {
         label: 'Reviewer',
         color: '#8b5cf6'
     },
-    'dummy': {
-        icon: <Terminal size={14} />,
-        processingText: 'simulating...',
-        label: 'Dummy',
-        color: '#6b7280'
-    },
     'default': {
         icon: <Bot size={14} />,
         processingText: 'processing...',
@@ -44,6 +38,5 @@ export function getAgentConfigByAuthor(author: string): AgentUIConfig {
     if (author === 'user') return AGENT_CONFIGS.default;
     if (author.includes('opencode')) return AGENT_CONFIGS.opencode;
     if (author.includes('review')) return AGENT_CONFIGS.code_review;
-    if (author.includes('dummy')) return AGENT_CONFIGS.dummy;
     return AGENT_CONFIGS.default;
 }
