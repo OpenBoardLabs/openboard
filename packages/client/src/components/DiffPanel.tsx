@@ -78,7 +78,7 @@ export function DiffPanel({ isOpen, onClose, boardId, ticket }: DiffPanelProps) 
 
     return createPortal(
         <>
-            {isOpen && <div className={styles.backdrop} onClick={onClose} />}
+            {isOpen && <div className={styles.backdrop} onClick={(e) => { e.stopPropagation(); onClose(); }} />}
             <div 
                 className={`${styles.panel} ${isOpen ? styles.open : ''}`}
                 onClick={(e) => e.stopPropagation()}
