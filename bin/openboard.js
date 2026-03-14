@@ -3,23 +3,118 @@
 import { execSync, spawn } from 'child_process';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import { createInterface } from 'readline';
+
+const RESET = '\x1b[0m';
+const BOLD = '\x1b[1m';
+const GREEN = '\x1b[32m';
+const YELLOW = '\x1b[33m';
+const RED = '\x1b[31m';
+const BLUE = '\x1b[34m';
+const CYAN = '\x1b[36m';
+
+const SPINNER_FRAMES = ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏'];
+let spinnerInterval = null;
+
+function startSpinner(text: string) {
+    let frame = 0;
+    process.stdout.write(`${CYAN}${SPINNER_FRAMES[frame]}${RESET} ${text}`);
+    spinnerInterval = setInterval(() => {
+        process.stdout.write('\r' + ' '.repeat(20));
+        frame = (frame + 1) % SPINNER_FRAMES.length;
+        process.stdout.write(`\r${CYAN}${SPINNER_FRAMES[frame]}${RESET} ${text}`);
+    }, 100);
+}
+
+function stopSpinner(text: string, success: boolean = true) {
+    if (spinnerInterval) {
+        clearInterval(spinnerInterval);
+        spinnerInterval = null;
+    }
+    process.stdout.write('\r' + ' '.repeat(25));
+    const icon = success ? `${GREEN}✓${RESET}` : `${RED}✗${RESET}`;
+    const color = success ? GREEN : RED;
+    process.stdout.write(`\r${icon} ${color}${text}${RESET}\n`);
+}
+
+function printCheck(text: string) {
+    console.log(`${GREEN}✓${RESET} ${text}`);
+}
+
+function printInfo(text: string) {
+    console.log(`${BLUE}ℹ${RESET} ${text}`);
+}
+
+function printWarn(text: string) {
+    console.log(`${YELLOW}⚠${RESET} ${YELLOW}${text}${RESET}`);
+}
+
+function printError(text: string) {
+    console.error(`${RED}✗${RESET} ${RED}${text}${RESET}`);
+}
+
+function execCommand(cmd: string, options: any = {}) {
+    return execSync(cmd, { stdio: 'pipe', ...options }).toString().trim();
+}
 
 function checkDependencies() {
-    const deps = ['git', 'gh', 'opencode'];
+    const deps = ['git', 'gh'];
     for (const dep of deps) {
         try {
-            execSync(`${dep} --version`, { stdio: 'ignore' });
+            execCommand(`${dep} --version`);
         } catch (err) {
-            console.error(`Error: Required dependency '${dep}' is not installed or not in PATH.`);
+            printError(`Required dependency '${dep}' is not installed or not in PATH.`);
             process.exit(1);
         }
     }
 }
 
-function startOpencode() {
-    console.log('[openboard] Starting opencode serve...');
+function installOpencode() {
+    printInfo('opencode not found. Installing...');
+    startSpinner('Installing opencode');
+    
+    try {
+        execCommand('curl -fsSL https://opencode.ai/install | bash', { stdio: 'inherit' });
+        stopSpinner('opencode installed', true);
+    } catch (err) {
+        stopSpinner('Failed to install opencode', false);
+        printError('Could not install opencode. Please install it manually: curl -fsSL https://opencode.ai/install | bash');
+        process.exit(1);
+    }
+}
 
-    // We run it detached if want, or just spawn it
+function checkOpencode() {
+    try {
+        execCommand('opencode --version');
+        printCheck('opencode is installed');
+        return true;
+    } catch (err) {
+        return false;
+    }
+}
+
+function checkGitHubAuth() {
+    printInfo('Checking GitHub authentication status...');
+    
+    try {
+        const status = execCommand('gh auth status');
+        
+        if (status.includes('Logged in to github.com')) {
+            printCheck('GitHub authenticated');
+            return true;
+        }
+    } catch (err) {
+    }
+    
+    printWarn('GitHub authentication not detected');
+    printWarn('Agents will not be able to create PRs without authentication');
+    printInfo('Run "gh auth login" to authenticate with GitHub');
+    return false;
+}
+
+function startOpencode() {
+    console.log(`${BOLD}[openboard]${RESET} Starting opencode serve...`);
+
     const child = spawn('opencode', ['serve'], { stdio: ['ignore', 'pipe', 'pipe'] });
 
     return new Promise((resolve, reject) => {
@@ -29,27 +124,25 @@ function startOpencode() {
         child.stdout.on('data', (data) => {
             const str = data.toString();
             output += str;
-            // opencode logs its url, e.g., "Server running at http://127.0.0.1:4096"
-            // Let's print opencode output for now so user can see it
-            process.stdout.write(`[opencode] ${str}`);
+            process.stdout.write(`${CYAN}[opencode]${RESET} ${str}`);
 
             if (!portFound) {
                 const match = output.match(/http:\/\/.*:(\d+)/);
                 if (match) {
                     portFound = true;
                     process.env.OPENCODE_PORT = match[1];
-                    console.log(`[openboard] opencode running on port ${match[1]}`);
+                    console.log(`${GREEN}[opencode]${RESET} opencode running on port ${match[1]}`);
                     resolve(child);
                 }
             }
         });
 
         child.stderr.on('data', (data) => {
-            process.stderr.write(`[opencode ERR] ${data}`);
+            process.stderr.write(`${RED}[opencode ERR]${RESET} ${data}`);
         });
 
         child.on('error', (err) => {
-            console.error('[openboard] Failed to start opencode', err);
+            printError(`Failed to start opencode: ${err.message}`);
             reject(err);
         });
 
@@ -62,44 +155,52 @@ function startOpencode() {
 }
 
 async function main() {
+    console.log(`${BOLD}${BLUE}╔════════════════════════════════════╗${RESET}`);
+    console.log(`${BOLD}${BLUE}║         OpenBoard Launcher         ║${RESET}`);
+    console.log(`${BOLD}${BLUE}╚════════════════════════════════════╝${RESET}\n`);
+    
     checkDependencies();
+    
+    if (!checkOpencode()) {
+        installOpencode();
+    }
+    
+    checkGitHubAuth();
+    
+    console.log('');
     const opencodeProcess = await startOpencode();
 
-    console.log('[openboard] Starting openboard server...');
+    console.log(`${BOLD}[openboard]${RESET} Starting openboard server...`);
     const __filename = fileURLToPath(import.meta.url);
     const __dirname = path.dirname(__filename);
 
     process.env.NODE_ENV = 'production';
     process.env.PORT = process.env.PORT || '3001';
 
-    // Import the compiled server index file
     try {
         await import(path.join(__dirname, '../packages/server/dist/index.js'));
         
-        // Give the server a moment to start
         setTimeout(async () => {
             const currentPath = process.cwd();
-            // We use fetch since the server is running in this process or another
             try {
                 const res = await fetch(`http://localhost:${process.env.PORT}/api/boards`);
                 if (res.ok) {
                     const boards = await res.json();
-                    // Find board with this path. Normalize windows paths for comparison.
-                    const normalize = (p) => p.replace(/\\/g, '/').toLowerCase();
-                    const board = boards.find(b => b.path && normalize(b.path) === normalize(currentPath));
+                    const normalize = (p: string) => p.replace(/\\/g, '/').toLowerCase();
+                    const board = boards.find((b: any) => b.path && normalize(b.path) === normalize(currentPath));
                     
                     const open = (await import('open')).default;
                     const url = board ? `http://localhost:${process.env.PORT}/boards/${board.id}` : `http://localhost:${process.env.PORT}/`;
-                    console.log(`[openboard] Opening browser to ${url}`);
+                    console.log(`${GREEN}[openboard]${RESET} Opening browser to ${url}`);
                     await open(url);
                 }
             } catch (e) {
-                console.error('[openboard] Could not detect board or open browser:', e);
+                printError(`Could not detect board or open browser: ${e}`);
             }
         }, 1000);
 
     } catch (e) {
-        console.error('[openboard] Error starting server. Did you run `npm run build`? Full Error:', e);
+        printError(`Error starting server. Did you run \`npm run build\`? Full Error: ${e}`);
         if (opencodeProcess) opencodeProcess.kill();
         process.exit(1);
     }
@@ -111,6 +212,6 @@ async function main() {
 }
 
 main().catch(err => {
-    console.error(err);
+    printError(err.message);
     process.exit(1);
 });
