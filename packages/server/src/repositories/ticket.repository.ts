@@ -169,7 +169,7 @@ export const ticketRepository = {
         sessionData: {
             column_id: string;
             agent_type: string;
-            status: 'processing' | 'done' | 'blocked' | 'needs_approval';
+            status: 'processing' | 'done' | 'blocked' | 'aborted' | 'needs_approval' | 'queued';
             url?: string;
             pr_url?: string;
             worktree_path?: string;
@@ -193,7 +193,7 @@ export const ticketRepository = {
             }
         }
 
-        const isTerminalStatus = (s: string) => s === 'done' || s === 'blocked';
+        const isTerminalStatus = (s: string) => s === 'done' || s === 'blocked' || s === 'aborted';
         let isNewSession = false;
 
         if (existingIdx === -1) {
@@ -201,7 +201,7 @@ export const ticketRepository = {
             isNewSession = true;
         } else {
             const existingSession = sessions[existingIdx];
-            // If the existing session is already in a terminal state (done or blocked)
+            // If the existing session is already in a terminal state (done, blocked, or aborted)
             // AND we are trying to start a new 'processing' session, then we append.
             if (isTerminalStatus(existingSession.status) && sessionData.status === 'processing') {
                 isNewSession = true;
@@ -217,9 +217,14 @@ export const ticketRepository = {
             };
             sessions.push(newSession);
         } else {
+            const existingSession = sessions[existingIdx];
+            // Do not overwrite user-aborted state when agent exit handler later reports blocked/done
+            if (existingSession.status === 'aborted' && (sessionData.status === 'blocked' || sessionData.status === 'done')) {
+                return this.findById(id);
+            }
             // Update the existing (active) session
             const newSession = {
-                ...sessions[existingIdx], // Preserve started_at and any missing fields
+                ...existingSession,
                 ...sessionData,
                 finished_at: isTerminalStatus(sessionData.status) ? new Date().toISOString() : undefined
             };

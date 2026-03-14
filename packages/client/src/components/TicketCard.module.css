@@ -135,9 +135,19 @@
     background: color-mix(in srgb, var(--color-error) 10%, transparent);
 }
 
+.abortedBadge {
+    color: #f97316;
+    background: color-mix(in srgb, #f97316 10%, transparent);
+}
+
 .needsApprovalBadge {
     color: var(--color-priority-medium);
     background: color-mix(in srgb, var(--color-priority-medium) 10%, transparent);
+}
+
+.queuedBadge {
+    color: var(--color-text-secondary);
+    background: color-mix(in srgb, var(--color-text-secondary) 12%, transparent);
 }
 
 .statusBadge:hover {

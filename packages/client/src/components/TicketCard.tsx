@@ -124,33 +124,39 @@ export function TicketCard({ ticket, isOverlay }: TicketCardProps) {
                         if (!activeSession) return null;
 
                         const session = activeSession;
-                        const showActiveSession = session && (session.url || session.status === 'processing' || session.status === 'done' || session.status === 'blocked' || session.status === 'needs_approval');
+                        const showActiveSession = session && (session.url || session.status === 'processing' || session.status === 'done' || session.status === 'blocked' || session.status === 'aborted' || session.status === 'needs_approval' || session.status === 'queued');
 
                         if (!showActiveSession) return null;
 
-                        const isAborted = session.status === 'blocked' && session.error_message?.toLowerCase().includes('aborted');
+                        const isAborted = session.status === 'aborted' || (session.status === 'blocked' && session.error_message?.toLowerCase().includes('aborted'));
 
                         return (
                             <button
                                 key={(session?.column_id || 'no-col') + '-' + (session?.started_at || 'no-start')}
                                 className={`${styles.statusBadge} ${session.status === 'processing' ? styles.processingBadge :
                                     session.status === 'done' ? styles.doneBadge :
-                                        session.status === 'blocked' ? styles.blockedBadge :
-                                            session.status === 'needs_approval' ? styles.needsApprovalBadge : ''
+                                        session.status === 'queued' ? styles.queuedBadge :
+                                            isAborted ? styles.abortedBadge :
+                                                session.status === 'blocked' ? styles.blockedBadge :
+                                                    session.status === 'needs_approval' ? styles.needsApprovalBadge : ''
                                     }`}
                                 title={session.url ? "Inspect Agent Session" : "Open Agent UI"}
                                 onClick={(e) => handleSessionClick(e, activeSessionIndex)}
                             >
                                 {session.status === 'done' ? <CheckCircle size={10} className={styles.doneIcon} /> :
-                                    session.status === 'blocked' ? <span style={{ color: isAborted ? '#f97316' : 'red', fontSize: '10px' }}>⚠️</span> :
-                                        session.status === 'needs_approval' ? <span style={{ color: '#f59e0b', fontSize: '10px', lineHeight: 1 }}>✋</span> :
-                                            React.cloneElement(getAgentConfig(session.agent_type).icon as React.ReactElement, { size: 10 })}
+                                    session.status === 'queued' ? <span style={{ fontSize: '10px' }}>⏳</span> :
+                                        session.status === 'blocked' ? <span style={{ color: isAborted ? '#f97316' : 'red', fontSize: '10px' }}>⚠️</span> :
+                                            session.status === 'aborted' ? <span style={{ color: '#f97316', fontSize: '10px' }}>⚠️</span> :
+                                                session.status === 'needs_approval' ? <span style={{ color: '#f59e0b', fontSize: '10px', lineHeight: 1 }}>✋</span> :
+                                                    React.cloneElement(getAgentConfig(session.agent_type).icon as React.ReactElement, { size: 10 })}
                                 <span>
                                     {session.status === 'blocked' ? (isAborted ? 'Aborted' : 'Error') :
-                                        session.status === 'done' ? 'Done' :
-                                            session.status === 'needs_approval' ? 'Needs Approval' :
-                                                session.status === 'processing' ? getAgentConfig(session.agent_type).processingText :
-                                                    'Agent UI'}
+                                        session.status === 'aborted' ? 'Aborted' :
+                                            session.status === 'queued' ? 'Queued' :
+                                                session.status === 'done' ? 'Done' :
+                                                    session.status === 'needs_approval' ? 'Needs Approval' :
+                                                        session.status === 'processing' ? getAgentConfig(session.agent_type).processingText :
+                                                            'Agent UI'}
                                 </span>
                             </button>
                         );

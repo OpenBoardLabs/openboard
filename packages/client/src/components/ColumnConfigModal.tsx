@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { t } from '../i18n/i18n';
 import { useApp } from '../store/AppContext';
 import type { Column, AgentType, CoderType } from '../types';
@@ -35,6 +35,17 @@ export function ColumnConfigModal({ column, boardId, onClose }: ColumnConfigModa
     const [isDirty, setIsDirty] = useState(false);
     const [isFinishSelectOpen, setIsFinishSelectOpen] = useState(false);
     const [isRejectSelectOpen, setIsRejectSelectOpen] = useState(false);
+    const [finishMenuOpenUp, setFinishMenuOpenUp] = useState(false);
+    const [rejectMenuOpenUp, setRejectMenuOpenUp] = useState(false);
+    const finishTriggerRef = useRef<HTMLButtonElement>(null);
+    const rejectTriggerRef = useRef<HTMLButtonElement>(null);
+
+    const MENU_MAX_HEIGHT = 260;
+    const updateMenuPlacement = (triggerEl: HTMLButtonElement | null, setOpenUp: (up: boolean) => void) => {
+        if (!triggerEl) return;
+        const rect = triggerEl.getBoundingClientRect();
+        setOpenUp(rect.bottom + MENU_MAX_HEIGHT > window.innerHeight);
+    };
 
     useEffect(() => {
         setIsDirty(
@@ -55,6 +66,22 @@ export function ColumnConfigModal({ column, boardId, onClose }: ColumnConfigModa
         window.addEventListener('keydown', handleKey);
         return () => window.removeEventListener('keydown', handleKey);
     }, [onClose]);
+
+    useEffect(() => {
+        if (!isFinishSelectOpen) return;
+        const id = requestAnimationFrame(() => {
+            updateMenuPlacement(finishTriggerRef.current, setFinishMenuOpenUp);
+        });
+        return () => cancelAnimationFrame(id);
+    }, [isFinishSelectOpen]);
+
+    useEffect(() => {
+        if (!isRejectSelectOpen) return;
+        const id = requestAnimationFrame(() => {
+            updateMenuPlacement(rejectTriggerRef.current, setRejectMenuOpenUp);
+        });
+        return () => cancelAnimationFrame(id);
+    }, [isRejectSelectOpen]);
 
     async function handleSave() {
         if (agentType === 'none') {
@@ -236,6 +263,7 @@ export function ColumnConfigModal({ column, boardId, onClose }: ColumnConfigModa
                                 <ArrowRight size={14} className={styles.flowArrow} />
                                 <div className={styles.selectPillWrapper}>
                                     <button
+                                        ref={finishTriggerRef}
                                         type="button"
                                         className={styles.selectPill}
                                         onClick={() => setIsFinishSelectOpen(!isFinishSelectOpen)}
@@ -248,7 +276,7 @@ export function ColumnConfigModal({ column, boardId, onClose }: ColumnConfigModa
                                         <ChevronDown size={14} />
                                     </button>
                                     {isFinishSelectOpen && (
-                                        <div className={styles.selectMenu}>
+                                        <div className={`${styles.selectMenu} ${finishMenuOpenUp ? styles.selectMenuOpenUp : ''}`}>
                                             <button
                                                 type="button"
                                                 className={styles.selectMenuItem}
@@ -292,6 +320,7 @@ export function ColumnConfigModal({ column, boardId, onClose }: ColumnConfigModa
                                 <ArrowRight size={14} className={styles.flowArrow} />
                                 <div className={styles.selectPillWrapper}>
                                     <button
+                                        ref={rejectTriggerRef}
                                         type="button"
                                         className={styles.selectPill}
                                         onClick={() => setIsRejectSelectOpen(!isRejectSelectOpen)}
@@ -304,7 +333,7 @@ export function ColumnConfigModal({ column, boardId, onClose }: ColumnConfigModa
                                         <ChevronDown size={14} />
                                     </button>
                                     {isRejectSelectOpen && (
-                                        <div className={styles.selectMenu}>
+                                        <div className={`${styles.selectMenu} ${rejectMenuOpenUp ? styles.selectMenuOpenUp : ''}`}>
                                             <button
                                                 type="button"
                                                 className={styles.selectMenuItem}

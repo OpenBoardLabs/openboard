@@ -95,9 +95,22 @@ router.post('/:id/retry', (req: Request, res: Response) => {
         res.status(404).json({ error: 'Ticket not found' });
         return;
     }
-    // Only retry if it failed or hasn't started
-    // We pass force=true so that if it is in 'blocked' state, it gets cleared.
+    // Requeue the ticket (e.g. after failure, abort, or to run again).
+    // We pass force=true so that tickets in 'blocked' or 'aborted' state are requeued.
     triggerAgent(ticket, true);
+
+    // Mark the last session for this column as 'queued' so the UI shows "Queued" instead of Error/Aborted
+    // even when the queue doesn't dispatch immediately (e.g. max concurrency). When a slot frees up,
+    // the queue will pick this ticket up and the agent will update the session to 'processing'.
+    const lastForColumn = [...(ticket.agent_sessions ?? [])].filter(s => s.column_id === ticket.column_id).pop();
+    if (lastForColumn && (lastForColumn.status === 'blocked' || lastForColumn.status === 'aborted')) {
+        ticketRepository.updateAgentSession(ticket.id, {
+            column_id: ticket.column_id,
+            agent_type: lastForColumn.agent_type,
+            status: 'queued',
+        });
+    }
+
     res.status(202).json({ status: 'retrying' });
 });
 

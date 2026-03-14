@@ -152,6 +152,24 @@
     background: rgba(239, 68, 68, 0.2);
 }
 
+.statusBadge.aborted {
+    color: #f97316;
+    background: rgba(249, 115, 22, 0.1);
+}
+
+.statusBadge.aborted:hover {
+    background: rgba(249, 115, 22, 0.2);
+}
+
+.statusBadge.queued {
+    color: var(--color-text-secondary);
+    background: rgba(128, 128, 128, 0.12);
+}
+
+.statusBadge.queued:hover {
+    background: rgba(128, 128, 128, 0.2);
+}
+
 .statusBadge.needsApproval {
     color: #f59e0b;
     background: rgba(245, 158, 11, 0.1);
@@ -682,6 +700,16 @@
 .historyStatus.blocked {
     background: rgba(239, 68, 68, 0.12);
     color: #dc2626;
+}
+
+.historyStatus.aborted {
+    background: rgba(249, 115, 22, 0.12);
+    color: #ea580c;
+}
+
+.historyStatus.queued {
+    background: rgba(128, 128, 128, 0.12);
+    color: var(--color-text-secondary);
 }
 
 .historyStatus.needs_approval {

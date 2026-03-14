@@ -99,12 +99,22 @@ class AgentQueueManager {
                     continue;
                 }
 
-                // Look at the LAST session in the ENTIRE history array.
-                // - If no sessions: ticket is fresh → eligible
-                // - If ticket has column_moves: it was moved to another column and back → eligible
-                // - If last session is for THIS column:
-                //     done → finished here naturally, skip
-                //     blocked → skip unless forced (retry path)
+                // Eligibility rules (in order):
+                //
+                // 1. No session yet → ticket is fresh in this column → eligible.
+                //
+                // 2. Last session is for THIS column and ended in 'aborted' (user clicked Abort)
+                //    → only requeue when user clicks Retry (forced). Never auto-requeue.
+                //
+                // 3. Last session is for THIS column and ended in 'blocked' (agent failed / error)
+                //    → only requeue when user clicks Retry (forced). Never auto-requeue.
+                //
+                // 4. wasInAnotherColumn: last column move was "into this column". That means the
+                //    user moved the ticket back to this column (e.g. from another column) without
+                //    another agent having run in between → treat as fresh arrival, eligible.
+                //    (We already excluded "aborted/blocked in this column" above.)
+                //
+                // 5. Last session for this column is 'done' → skip unless forced (retry).
                 const lastSession = ticket.agent_sessions.length > 0
                     ? ticket.agent_sessions[ticket.agent_sessions.length - 1]
                     : null;
@@ -119,17 +129,23 @@ class AgentQueueManager {
                 }
 
                 const wasInAnotherColumn = ticket.column_moves.length > 0 && ticket.column_moves[ticket.column_moves.length - 1].to_column_id == columnId;
+                const lastSessionForThisColumn = lastSession?.column_id === columnId;
+                const lastEndedAbortedOrBlocked = lastSessionForThisColumn && (lastSession.status === 'aborted' || lastSession.status === 'blocked');
 
                 if (!lastSession) {
+                    eligibleTickets.push(ticket);
+                } else if (lastEndedAbortedOrBlocked) {
+                    // Aborted by user or failed in this column: only requeue on explicit Retry
+                    if (this.forcedTickets.has(ticket.id)) {
+                        eligibleTickets.push(ticket);
+                    }
+                } else if (lastSessionForThisColumn && lastSession.status === 'queued') {
+                    // User clicked Retry; session was set to queued (e.g. no slot was available). Pick up when slot frees.
                     eligibleTickets.push(ticket);
                 } else if (wasInAnotherColumn) {
                     eligibleTickets.push(ticket);
                 } else {
                     if (lastSession.status === 'done') {
-                        if (this.forcedTickets.has(ticket.id)) {
-                            eligibleTickets.push(ticket);
-                        }
-                    } else if (lastSession.status === 'blocked') {
                         if (this.forcedTickets.has(ticket.id)) {
                             eligibleTickets.push(ticket);
                         }

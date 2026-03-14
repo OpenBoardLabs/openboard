@@ -187,19 +187,31 @@ export function TicketModal({ ticket, columnId, onClose }: TicketModalProps) {
                                     )}
                                 </div>
                             );
+                            if (session.status === 'queued') return (
+                                <div key={session.started_at} className={`${styles.statusBadge} ${styles.queued}`} title="Agent run is queued and will start when a slot is available">
+                                    <span style={{ fontSize: 12 }}>⏳</span>
+                                    Queued
+                                </div>
+                            );
                             if (session.status === 'blocked') {
-                                const isAborted = session.error_message?.toLowerCase().includes('aborted');
+                                const isAbortedLegacy = session.error_message?.toLowerCase().includes('aborted');
                                 return (
                                     <div
                                         key={session.started_at}
                                         className={`${styles.statusBadge} ${styles.blocked}`}
-                                        title={isAborted ? 'Agent session was aborted' : 'Agent execution failed or blocked'}
+                                        title={isAbortedLegacy ? 'Agent session was aborted' : 'Agent execution failed or blocked'}
                                     >
                                         <span style={{ color: 'white' }}>⚠️</span>
-                                        {isAborted ? 'Aborted' : 'Error'}
+                                        {isAbortedLegacy ? 'Aborted' : 'Error'}
                                     </div>
                                 );
                             }
+                            if (session.status === 'aborted') return (
+                                <div key={session.started_at} className={`${styles.statusBadge} ${styles.aborted}`} title="Agent session was aborted by user">
+                                    <span style={{ color: 'white' }}>⚠️</span>
+                                    Aborted
+                                </div>
+                            );
                             if (session.status === 'needs_approval') return (
                                 <div key={session.started_at} className={`${styles.statusBadge} ${styles.needsApproval}`} title="Agent requires user permission">
                                     <span style={{ color: '#f59e0b' }}>✋</span>
@@ -244,7 +256,7 @@ export function TicketModal({ ticket, columnId, onClose }: TicketModalProps) {
 
                             return (
                                 <React.Fragment key={(session?.started_at || prSession?.started_at || worktreeSession?.started_at)}>
-                                    {session?.status === 'blocked' && (
+                                    {(session?.status === 'blocked' || session?.status === 'aborted') && (
                                         <button
                                             className={styles.sessionBtn}
                                             onClick={() => retryTicket(ticket.board_id, ticket.id)}
@@ -404,14 +416,17 @@ export function TicketModal({ ticket, columnId, onClose }: TicketModalProps) {
                                         {ticket.agent_sessions.map((session, idx) => {
                                             const colName = state.columns.find(c => c.id === session.column_id)?.name || 'Unknown Step';
                                             const agentConfig = getAgentConfig(session.agent_type);
+                                            const isAbortedSession = session.status === 'aborted' || (session.status === 'blocked' && session.error_message?.toLowerCase().includes('aborted'));
+                                            const historyStatusLabel = isAbortedSession ? 'Aborted' : session.status.replace(/_/g, ' ');
+                                            const historyStatusClass = isAbortedSession ? styles.aborted : (styles[session.status] || '');
                                             return (
                                                 <li key={idx} className={styles.historyItem}>
                                                     <div className={styles.historyItemInner}>
                                                         <span className={styles.historyStepName}>{colName}</span>
                                                         <div className={styles.historyItemMeta}>
-                                                            <span className={`${styles.historyStatus} ${styles[session.status] || ''}`}>
+                                                            <span className={`${styles.historyStatus} ${historyStatusClass}`}>
                                                                 {agentConfig.icon}
-                                                                <span>{session.status.replace(/_/g, ' ')}</span>
+                                                                <span>{historyStatusLabel}</span>
                                                             </span>
                                                             {session.total_cost !== undefined && session.total_cost > 0 && (
                                                                 <span className={styles.historyCost}>${session.total_cost.toFixed(2)}</span>

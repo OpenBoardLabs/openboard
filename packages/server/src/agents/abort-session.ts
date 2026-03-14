@@ -30,7 +30,7 @@ export function abortSession(ticketId: string, reason: AbortReason = 'moved'): v
         ticketRepository.updateAgentSession(ticketId, {
             column_id: session.column_id,
             agent_type: session.agent_type,
-            status: 'blocked',
+            status: reason === 'aborted' ? 'aborted' : 'blocked',
             error_message:
                 reason === 'moved'
                     ? 'Session aborted: ticket moved to another column'
