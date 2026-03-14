@@ -159,6 +159,7 @@ function runMigrations() {
       priority    TEXT NOT NULL DEFAULT 'medium',
       position    INTEGER NOT NULL DEFAULT 0,
       agent_sessions TEXT NOT NULL DEFAULT '[]',
+      column_moves TEXT NOT NULL DEFAULT '[]',
       created_at  TEXT NOT NULL DEFAULT (datetime('now')),
       updated_at  TEXT NOT NULL DEFAULT (datetime('now'))
     );

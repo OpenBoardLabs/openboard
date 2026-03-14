@@ -42,6 +42,12 @@ export interface AgentSession {
     merged?: boolean;
 }
 
+export interface ColumnMove {
+    from_column_id: string;
+    to_column_id: string;
+    moved_at: string;
+}
+
 export interface Ticket {
     id: string;
     column_id: string;
@@ -51,6 +57,7 @@ export interface Ticket {
     priority: Priority;
     position: number;
     agent_sessions: AgentSession[];
+    column_moves: ColumnMove[];
 
     created_at: string;
     updated_at: string;

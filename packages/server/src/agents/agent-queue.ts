@@ -89,9 +89,8 @@ class AgentQueueManager {
 
                 // Look at the LAST session in the ENTIRE history array.
                 // - If no sessions: ticket is fresh → eligible
-                // - If last session is for a DIFFERENT column: ticket just arrived here → eligible
+                // - If ticket has column_moves: it was moved to another column and back → eligible
                 // - If last session is for THIS column:
-                //     processing/needs_approval → already running
                 //     done → finished here naturally, skip
                 //     blocked → skip unless forced (retry path)
                 const lastSession = ticket.agent_sessions.length > 0
@@ -107,9 +106,7 @@ class AgentQueueManager {
                     continue;
                 }
 
-                const wasInAnotherColumn = ticket.agent_sessions.some(
-                    s => s.column_id !== columnId
-                );
+                const wasInAnotherColumn = ticket.column_moves.length > 0;
 
                 if (!lastSession) {
                     eligibleTickets.push(ticket);

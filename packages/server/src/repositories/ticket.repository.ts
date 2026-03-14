@@ -5,14 +5,21 @@ import type { Ticket, Priority } from '../types.js';
 
 function parseTicket(row: any): Ticket {
     let agent_sessions = [];
+    let column_moves = [];
     if (row.agent_sessions) {
         try {
             agent_sessions = JSON.parse(row.agent_sessions);
         } catch { }
     }
+    if (row.column_moves) {
+        try {
+            column_moves = JSON.parse(row.column_moves);
+        } catch { }
+    }
     return {
         ...row,
-        agent_sessions
+        agent_sessions,
+        column_moves
     };
 }
 
@@ -127,6 +134,21 @@ export const ticketRepository = {
                 db.prepare(
                     'UPDATE tickets SET position = position - 1 WHERE column_id = ? AND position > ?'
                 ).run(fromColumnId, fromPosition);
+
+                // 3. Record the column move
+                const ticket = db.prepare('SELECT column_moves FROM tickets WHERE id = ?').get(id) as { column_moves: string | null } | undefined;
+                let columnMoves: any[] = [];
+                if (ticket?.column_moves) {
+                    try {
+                        columnMoves = JSON.parse(ticket.column_moves);
+                    } catch { }
+                }
+                columnMoves.push({
+                    from_column_id: fromColumnId,
+                    to_column_id: toColumnId,
+                    moved_at: new Date().toISOString()
+                });
+                db.prepare('UPDATE tickets SET column_moves = ? WHERE id = ?').run(JSON.stringify(columnMoves), id);
             }
 
             // Finally, update the target ticket (agent history remains intact)
