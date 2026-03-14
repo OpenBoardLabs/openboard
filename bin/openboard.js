@@ -16,7 +16,7 @@ const CYAN = '\x1b[36m';
 const SPINNER_FRAMES = ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏'];
 let spinnerInterval = null;
 
-function startSpinner(text: string) {
+function startSpinner(text) {
     let frame = 0;
     process.stdout.write(`${CYAN}${SPINNER_FRAMES[frame]}${RESET} ${text}`);
     spinnerInterval = setInterval(() => {
@@ -26,7 +26,7 @@ function startSpinner(text: string) {
     }, 100);
 }
 
-function stopSpinner(text: string, success: boolean = true) {
+function stopSpinner(text, success = true) {
     if (spinnerInterval) {
         clearInterval(spinnerInterval);
         spinnerInterval = null;
@@ -37,23 +37,23 @@ function stopSpinner(text: string, success: boolean = true) {
     process.stdout.write(`\r${icon} ${color}${text}${RESET}\n`);
 }
 
-function printCheck(text: string) {
+function printCheck(text) {
     console.log(`${GREEN}✓${RESET} ${text}`);
 }
 
-function printInfo(text: string) {
+function printInfo(text) {
     console.log(`${BLUE}ℹ${RESET} ${text}`);
 }
 
-function printWarn(text: string) {
+function printWarn(text) {
     console.log(`${YELLOW}⚠${RESET} ${YELLOW}${text}${RESET}`);
 }
 
-function printError(text: string) {
+function printError(text) {
     console.error(`${RED}✗${RESET} ${RED}${text}${RESET}`);
 }
 
-function execCommand(cmd: string, options: any = {}) {
+function execCommand(cmd, options = {}) {
     return execSync(cmd, { stdio: 'pipe', ...options }).toString().trim();
 }
 
@@ -186,8 +186,8 @@ async function main() {
                 const res = await fetch(`http://localhost:${process.env.PORT}/api/boards`);
                 if (res.ok) {
                     const boards = await res.json();
-                    const normalize = (p: string) => p.replace(/\\/g, '/').toLowerCase();
-                    const board = boards.find((b: any) => b.path && normalize(b.path) === normalize(currentPath));
+                    const normalize = (p) => p.replace(/\\/g, '/').toLowerCase();
+                    const board = boards.find((b) => b.path && normalize(b.path) === normalize(currentPath));
                     
                     const open = (await import('open')).default;
                     const url = board ? `http://localhost:${process.env.PORT}/boards/${board.id}` : `http://localhost:${process.env.PORT}/`;
